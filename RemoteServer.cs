@@ -48,6 +48,103 @@ namespace PPTWebBrowserAddIn
             try { Globals.ThisAddIn.LogToFile("ControlVideo: Reset active video focus."); } catch {}
         }
 
+        
+        public static string GetBestLocalIpAddress()
+        {
+            try
+            {
+                var candidates = new List<KeyValuePair<int, string>>();
+                var nics = NetworkInterface.GetAllNetworkInterfaces();
+
+                foreach (var nic in nics)
+                {
+                    if (nic.OperationalStatus != OperationalStatus.Up || 
+                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    {
+                        continue;
+                    }
+
+                    string name = (nic.Name + " " + nic.Description).ToLower();
+                    // Exclude known virtual / proxy / container / VPN adapters
+                    if (name.Contains("meta") || name.Contains("clash") || name.Contains("wsl") || 
+                        name.Contains("vethernet") || name.Contains("vmware") || name.Contains("virtualbox") || 
+                        name.Contains("tap") || name.Contains("docker") || name.Contains("tailscale") || 
+                        name.Contains("zerotier") || name.Contains("sing-box") || name.Contains("npcap"))
+                    {
+                        continue;
+                    }
+
+                    var ipProps = nic.GetIPProperties();
+                    foreach (var ip in ipProps.UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork && 
+                            !IPAddress.IsLoopback(ip.Address))
+                        {
+                            string ipStr = ip.Address.ToString();
+                            if (ipStr.StartsWith("198.18.") || ipStr.StartsWith("169.254.")) continue;
+
+                            int score = 0;
+                            if (nic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || 
+                                name.Contains("wlan") || name.Contains("wi-fi") || name.Contains("wireless"))
+                            {
+                                score += 100; // Prioritize Wi-Fi since mobile phones connect to Wi-Fi
+                            }
+                            else if (nic.NetworkInterfaceType == NetworkInterfaceType.Ethernet || 
+                                     name.Contains("ethernet") || name.Contains("以太网"))
+                            {
+                                score += 50;
+                            }
+
+                            if (ipProps.GatewayAddresses.Count > 0) score += 20;
+
+                            if (ipStr.StartsWith("192.168.")) score += 30;
+                            else if (ipStr.StartsWith("10.")) score += 20;
+                            else if (ipStr.StartsWith("172.")) score += 10;
+
+                            candidates.Add(new KeyValuePair<int, string>(score, ipStr));
+                        }
+                    }
+                }
+
+                if (candidates.Count > 0)
+                {
+                    candidates.Sort((a, b) => b.Key.CompareTo(a.Key));
+                    return candidates[0].Value;
+                }
+            }
+            catch { }
+            return "127.0.0.1";
+        }
+
+        public static List<KeyValuePair<string, string>> GetAllAvailableIps()
+        {
+            var list = new List<KeyValuePair<string, string>>();
+            try
+            {
+                var nics = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (var nic in nics)
+                {
+                    if (nic.OperationalStatus != OperationalStatus.Up || 
+                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+
+                    var ipProps = nic.GetIPProperties();
+                    foreach (var ip in ipProps.UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork && 
+                            !IPAddress.IsLoopback(ip.Address))
+                        {
+                            string ipStr = ip.Address.ToString();
+                            if (ipStr.StartsWith("169.254.")) continue;
+                            list.Add(new KeyValuePair<string, string>(ipStr, nic.Name + " (" + ipStr + ")"));
+                        }
+                    }
+                }
+            }
+            catch { }
+            if (list.Count == 0) list.Add(new KeyValuePair<string, string>("127.0.0.1", "Localhost (127.0.0.1)"));
+            return list;
+        }
+
         public RemoteServer(int port, SynchronizationContext syncContext)
         {
             _port = port;
@@ -60,31 +157,8 @@ namespace PPTWebBrowserAddIn
 
             try
             {
-                // Auto detect active LAN IPv4
-                string localIp = null;
-                var nics = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (var nic in nics)
-                {
-                    if (nic.OperationalStatus == OperationalStatus.Up && 
-                        nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                    {
-                        var ipProps = nic.GetIPProperties();
-                        foreach (var ip in ipProps.UnicastAddresses)
-                        {
-                            if (ip.Address.AddressFamily == AddressFamily.InterNetwork && 
-                                !IPAddress.IsLoopback(ip.Address))
-                            {
-                                localIp = ip.Address.ToString();
-                                break;
-                            }
-                        }
-                        if (localIp != null) break;
-                    }
-                }
-                if (string.IsNullOrEmpty(localIp))
-                {
-                    localIp = "127.0.0.1";
-                }
+                // Auto detect best active LAN IPv4 (prioritizing Wi-Fi/Ethernet over virtual TUN/Meta/WSL adapters)
+                string localIp = GetBestLocalIpAddress();
                 
                 // Bind to standard TCP socket
                 _listener = new TcpListener(IPAddress.Any, _port);
@@ -352,12 +426,8 @@ namespace PPTWebBrowserAddIn
                             }
                             else
                             {
-                                string headers = "HTTP/1.1 302 Found\r\n" +
-                                                 "Location: /console\r\n" +
-                                                 "Content-Length: 0\r\n" +
-                                                 "Connection: close\r\n\r\n";
-                                byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
-                                stream.Write(headerBytes, 0, headerBytes.Length);
+                                string html = GetControlPageHtml();
+                                SendHtmlResponse(stream, html);
                             }
                         }
                         else
@@ -370,8 +440,8 @@ namespace PPTWebBrowserAddIn
                         stream.Flush();
                         try
                         {
-                            client.Client.Shutdown(SocketShutdown.Send);
-                            Thread.Sleep(50);
+                            // Graceful close without premature RST
+                            stream.Flush();
                         }
                         catch { }
                     }
