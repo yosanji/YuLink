@@ -168,5 +168,4 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 
 本项目采用 [MIT License](LICENSE) 开源协议。
 
-- Copyright (c) 2026 **yosanji (鱼玄机)** - YuLink project
-- Copyright (c) 2025 **yuwenhui2020** - PPT-Addin original work
+Copyright (c) 2026 **yosanji (鱼玄机)**. All rights reserved.
