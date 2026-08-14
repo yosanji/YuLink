@@ -975,17 +975,15 @@ namespace PPTWebBrowserAddIn
 
                 // btnLiquidGlass (Red macOS Traffic Light close button)
                 btnLiquidGlass = new Button();
-                btnLiquidGlass.Size = new Size(13, 13);
-                btnLiquidGlass.Location = new Point(16, 15);
+                btnLiquidGlass.Size = new Size(15, 15);
+                btnLiquidGlass.Location = new Point(16, 14);
                 btnLiquidGlass.FlatStyle = FlatStyle.Flat;
                 btnLiquidGlass.FlatAppearance.BorderSize = 0;
                 btnLiquidGlass.BackColor = Color.FromArgb(255, 95, 86);
                 btnLiquidGlass.Cursor = Cursors.Hand;
                 MakeCircular(btnLiquidGlass);
-                btnLiquidGlass.Click += (s, e) =>
-                {
-                    this.Close();
-                };
+                btnLiquidGlass.Click += (s, e) => { this.Close(); };
+                btnLiquidGlass.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.Close(); };
 
                 // Create Ink button
                 _btnInk = new Button();
@@ -1031,32 +1029,29 @@ namespace PPTWebBrowserAddIn
                     }
                 };
 
-                // Yellow Refresh Button (macOS Traffic Light)
+                // Yellow Minimize Button (macOS Traffic Light)
                 _btnRefresh = new Button();
-                _btnRefresh.Size = new Size(13, 13);
-                _btnRefresh.Location = new Point(36, 15);
+                _btnRefresh.Size = new Size(15, 15);
+                _btnRefresh.Location = new Point(38, 14);
                 _btnRefresh.FlatStyle = FlatStyle.Flat;
                 _btnRefresh.FlatAppearance.BorderSize = 0;
                 _btnRefresh.BackColor = Color.FromArgb(254, 188, 44);
                 _btnRefresh.Cursor = Cursors.Hand;
                 MakeCircular(_btnRefresh);
-                _btnRefresh.Click += (s, e) => { _webView.Reload(); };
+                _btnRefresh.Click += (s, e) => { this.MinimizeWindow(); };
+                _btnRefresh.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.MinimizeWindow(); };
 
                 // Green Fullscreen Button (macOS Traffic Light)
                 _btnFullScreen = new Button();
-                _btnFullScreen.Size = new Size(13, 13);
-                _btnFullScreen.Location = new Point(56, 15);
+                _btnFullScreen.Size = new Size(15, 15);
+                _btnFullScreen.Location = new Point(60, 14);
                 _btnFullScreen.FlatStyle = FlatStyle.Flat;
                 _btnFullScreen.FlatAppearance.BorderSize = 0;
                 _btnFullScreen.BackColor = Color.FromArgb(39, 201, 63);
                 _btnFullScreen.Cursor = Cursors.Hand;
                 MakeCircular(_btnFullScreen);
-                _btnFullScreen.Click += (s, e) =>
-                {
-                    this.IsMaximized = !this.IsMaximized;
-                    Globals.ThisAddIn.TriggerReposition();
-                    UpdateZoomFactor();
-                };
+                _btnFullScreen.Click += (s, e) => { this.ToggleMaximize(); };
+                _btnFullScreen.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.ToggleMaximize(); };
 
                 toolTip.SetToolTip(btnLiquidGlass, "关闭 (Close)");
                 toolTip.SetToolTip(_btnRefresh, "最小化 (Minimize)");
