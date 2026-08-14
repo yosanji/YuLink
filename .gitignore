@@ -1,0 +1,24 @@
+# Visual Studio Cache & User Files
+.vs/
+bin/
+obj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Custom Build Temporary Directory
+PPTBuildTemp/
+
+# Custom Build Re-generated Outputs (ignore build outputs, keep dependency DLLs)
+PowerPointAddInExtracted/PowerPointAddIn.dll
+PowerPointAddInExtracted/PowerPointAddIn.dll.manifest
+PowerPointAddInExtracted/PowerPointAddIn.vsto
+PowerPointAddInExtracted/temp_signing.pfx
+PowerPointAddInExtracted/PowerPointAddIn_official.dll
+PowerPointAddInExtracted/*.log
+
+# Logs & Temp Files
+*.log
+*.tmp
+*.temp

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="Ribbon_Load">
+  <ribbon>
+    <tabs>
+      <tab id="tabYuLink" label="YuLink">
+        <group id="grpWebView" label="幻灯片网页">
+          <button id="btnInsertWebView" label="插入网页" size="large" imageMso="HyperlinkInsert" onAction="OnInsertWebView" />
+        </group>
+        <group id="grpControl" label="局域网遥控">
+          <button id="btnToggleConsole" label="开启控制" size="large" imageMso="ConnectToServer" onAction="OnToggleConsole" />
+          <button id="btnShowQR" label="遥控二维码" size="large" imageMso="Camera" onAction="OnShowQR" />
+        </group>
+        <group id="grpSettings" label="系统配置">
+          <button id="btnSettings" label="安全与缓存设置" size="large" imageMso="ApplicationOptionsDialog" onAction="OnOpenSettings" />
+          <button id="btnClearCache" label="清除网页缓存" size="large" imageMso="Delete" onAction="OnClearCache" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
