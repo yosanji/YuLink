@@ -12,6 +12,97 @@ using PowerPoint = Microsoft.Office.Interop.PowerPoint;
 
 namespace PPTWebBrowserAddIn
 {
+    // =========================================================================
+    // Windows Native Core Audio Master Volume Interop (Zero External DLLs)
+    // =========================================================================
+    internal static class WindowsAudioHelper
+    {
+        [ComImport]
+        [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+        private class MMDeviceEnumeratorComObject { }
+
+        [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IMMDeviceEnumerator
+        {
+            int NotImpl1();
+            [PreserveSig]
+            int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppDevice);
+        }
+
+        [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IMMDevice
+        {
+            [PreserveSig]
+            int Activate(ref Guid iid, int dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
+        }
+
+        [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IAudioEndpointVolume
+        {
+            [PreserveSig]
+            int RegisterControlChangeNotify(IntPtr pNotify);
+            [PreserveSig]
+            int UnregisterControlChangeNotify(IntPtr pNotify);
+            [PreserveSig]
+            int GetChannelCount(out uint pnChannelCount);
+            [PreserveSig]
+            int SetMasterVolumeLevel(float fLevelDB, ref Guid pguidEventContext);
+            [PreserveSig]
+            int SetMasterVolumeLevelScalar(float fLevel, ref Guid pguidEventContext);
+            [PreserveSig]
+            int GetMasterVolumeLevel(out float pfLevelDB);
+            [PreserveSig]
+            int GetMasterVolumeLevelScalar(out float pfLevel);
+            [PreserveSig]
+            int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, ref Guid pguidEventContext);
+            [PreserveSig]
+            int GetMute(out bool pbMute);
+        }
+
+        public static float GetMasterVolume()
+        {
+            try
+            {
+                var enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumeratorComObject());
+                IMMDevice speakers;
+                enumerator.GetDefaultAudioEndpoint(0, 1, out speakers); // eRender = 0, eMultimedia = 1
+                var IID_IAudioEndpointVolume = typeof(IAudioEndpointVolume).GUID;
+                object o;
+                speakers.Activate(ref IID_IAudioEndpointVolume, 0, IntPtr.Zero, out o);
+                var audioEndpointVolume = (IAudioEndpointVolume)o;
+
+                float currentVol;
+                audioEndpointVolume.GetMasterVolumeLevelScalar(out currentVol);
+                return currentVol;
+            }
+            catch
+            {
+                return 0.5f;
+            }
+        }
+
+        public static void SetMasterVolume(float volume)
+        {
+            try
+            {
+                if (volume < 0f) volume = 0f;
+                if (volume > 1f) volume = 1f;
+
+                var enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumeratorComObject());
+                IMMDevice speakers;
+                enumerator.GetDefaultAudioEndpoint(0, 1, out speakers);
+                var IID_IAudioEndpointVolume = typeof(IAudioEndpointVolume).GUID;
+                object o;
+                speakers.Activate(ref IID_IAudioEndpointVolume, 0, IntPtr.Zero, out o);
+                var audioEndpointVolume = (IAudioEndpointVolume)o;
+
+                Guid guid = Guid.Empty;
+                audioEndpointVolume.SetMasterVolumeLevelScalar(volume, ref guid);
+            }
+            catch { }
+        }
+    }
+
     public class RemoteServer
     {
         private TcpListener _listener;
@@ -304,10 +395,20 @@ namespace PPTWebBrowserAddIn
                             }
                             SendJsonResponse(stream, "{\"status\":\"success\"}");
                         }
+                        else if (path == "/first_slide")
+                        {
+                            GotoFirstSlide();
+                            SendJsonResponse(stream, "{\"status\":\"success\"}");
+                        }
                         else if (path == "/black")
                         {
                             TogglePowerPointBlackScreen();
                             SendJsonResponse(stream, "{\"status\":\"success\"}");
+                        }
+                        else if (path == "/api/get_system_volume")
+                        {
+                            float sysVol = WindowsAudioHelper.GetMasterVolume();
+                            SendJsonResponse(stream, "{\"volume\":" + sysVol.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "}");
                         }
                         else if (path == "/volume")
                         {
@@ -323,6 +424,10 @@ namespace PPTWebBrowserAddIn
                                 float vol = 0.5f;
                                 if (float.TryParse(valStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out vol))
                                 {
+                                    // 1. Set Windows Native System Master Volume directly
+                                    WindowsAudioHelper.SetMasterVolume(vol);
+
+                                    // 2. Adjust PPT slide media shapes volume
                                     ControlPowerPointVolume(vol);
                                 }
                             }
@@ -341,27 +446,6 @@ namespace PPTWebBrowserAddIn
                                     CastVersion++;
                                     
                                     if (Globals.ThisAddIn != null)
-                                    {
-                                        Globals.ThisAddIn.ShowLiveCast(ServerUrl + "cast_view");
-                                    }
-                                }
-                            }
-                            SendJsonResponse(stream, "{\"status\":\"success\",\"version\":" + CastVersion + "}");
-                        }
-                        else if (path == "/api/cast_frame")
-                        {
-                            // Receive live stream frame from phone camera
-                            if (!string.IsNullOrEmpty(requestBody))
-                            {
-                                string imgData = ExtractJsonString(requestBody, "image");
-                                if (!string.IsNullOrEmpty(imgData))
-                                {
-                                    bool isFirst = (CastMode != "stream");
-                                    CurrentCastImage = imgData;
-                                    CastMode = "stream";
-                                    CastVersion++;
-                                    
-                                    if (isFirst && Globals.ThisAddIn != null)
                                     {
                                         Globals.ThisAddIn.ShowLiveCast(ServerUrl + "cast_view");
                                     }
@@ -512,6 +596,27 @@ namespace PPTWebBrowserAddIn
                         {
                             view.Previous();
                         }
+                    }
+                }
+                catch { }
+            });
+        }
+
+        private void GotoFirstSlide()
+        {
+            Globals.ThisAddIn.SafeInvoke(delegate()
+            {
+                try
+                {
+                    var app = Globals.ThisAddIn.Application;
+                    if (app.SlideShowWindows.Count > 0)
+                    {
+                        var view = app.SlideShowWindows[1].View;
+                        if (view.State == PowerPoint.PpSlideShowState.ppSlideShowBlackScreen)
+                        {
+                            view.State = PowerPoint.PpSlideShowState.ppSlideShowRunning;
+                        }
+                        view.First();
                     }
                 }
                 catch { }
@@ -850,15 +955,15 @@ namespace PPTWebBrowserAddIn
         </div>
 
         <div class=""hud-tools"">
-            <button class=""hud-btn"" onclick=""rotateImage()"">🔄 旋转 90°</button>
-            <button class=""hud-btn"" onclick=""zoomIn()"">🔍 放大</button>
-            <button class=""hud-btn"" onclick=""zoomOut()"">🔎 缩小</button>
-            <button class=""hud-btn close"" onclick=""stopCast()"">❌ 退出展台</button>
+            <button class=""hud-btn"" onclick=""rotateImage()"">旋转 90°</button>
+            <button class=""hud-btn"" onclick=""zoomIn()"">放大</button>
+            <button class=""hud-btn"" onclick=""zoomOut()"">缩小</button>
+            <button class=""hud-btn close"" onclick=""stopCast()"">退出展台</button>
         </div>
 
         <div id=""emptyState"" class=""empty-hint"">
             <svg viewBox=""0 0 24 24""><path d=""M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z""/></svg>
-            <div style=""font-size: 16px; font-weight: 600; color: #f5f5f7;"">请使用手机在【无线展台】中拍照投屏</div>
+            <div style=""font-size: 16px; font-weight: 600; color: #f5f5f7;"">请使用手机在【实物展台】中拍照投屏</div>
             <div style=""font-size: 13px; color: #86868b;"">照片投屏后可直接使用画笔在投影屏幕上圈画批改</div>
         </div>
 
@@ -910,11 +1015,7 @@ namespace PPTWebBrowserAddIn
                         img.src = data.image;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
-                        if (data.mode === 'photo') {
-                            statusEl.innerText = '📸 实物作业拍照讲评 (可使用画笔批改)';
-                        } else if (data.mode === 'stream') {
-                            statusEl.innerText = '🎥 实时动态实物展台直播中';
-                        }
+                        statusEl.innerText = '实物作业拍照讲评 (可使用画笔批改)';
                     }
                 }
             } catch (e) {}
@@ -928,7 +1029,7 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Apple Modern Pure White Minimalist Mobile Web Controller HTML
+        // Pure Minimalist Modern Apple Pro Web Controller HTML (Zero Emoji, Clean Vectors)
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -940,17 +1041,15 @@ namespace PPTWebBrowserAddIn
     <title>YuLink 控制中心</title>
     <style>
         :root {
-            --bg-page: #f5f5f7;
+            --bg-page: #f2f2f7;
             --card-bg: #ffffff;
             --card-border: rgba(0, 0, 0, 0.05);
-            --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.02);
+            --card-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
             --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
+            --text-secondary: #8e8e93;
             --btn-neutral-bg: #f2f2f7;
-            --btn-neutral-hover: #e8e8ed;
-            --btn-neutral-active: #dcdee3;
+            --btn-neutral-active: #e5e5ea;
             --apple-blue: #0071e3;
-            --apple-blue-hover: #0077ed;
             --apple-blue-active: #0062c4;
             --apple-green: #34c759;
             --apple-green-active: #2ebd52;
@@ -975,7 +1074,7 @@ namespace PPTWebBrowserAddIn
             flex-direction: column;
             align-items: center;
             overflow-x: hidden;
-            padding: 16px 16px 36px 16px;
+            padding: 18px 16px 36px 16px;
             -webkit-font-smoothing: antialiased;
         }
 
@@ -983,34 +1082,31 @@ namespace PPTWebBrowserAddIn
         .app-header {
             width: 100%;
             max-width: 380px;
-            padding: 8px 8px 16px 8px;
+            padding: 6px 4px 18px 4px;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         .brand-title {
-            font-size: 22px;
+            font-size: 21px;
             font-weight: 700;
             letter-spacing: -0.5px;
             color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }
 
         .status-badge {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 7px;
             background: #ffffff;
-            padding: 6px 12px;
+            padding: 6px 13px;
             border-radius: 14px;
             font-size: 12px;
             font-weight: 500;
             color: var(--text-secondary);
             border: 1px solid var(--card-border);
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         }
 
         .status-dot {
@@ -1019,16 +1115,15 @@ namespace PPTWebBrowserAddIn
             background: var(--apple-green);
             border-radius: 50%;
             box-shadow: 0 0 6px var(--apple-green);
-            transition: all 0.2s ease;
         }
 
-        /* Apple iOS Segmented Control Tab Switcher */
+        /* Apple iOS Segmented Control Switcher */
         .tab-bar-container {
             width: 100%;
             max-width: 380px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             background: #e5e5ea;
-            border-radius: 16px;
+            border-radius: 15px;
             padding: 3px;
             display: flex;
             position: relative;
@@ -1036,11 +1131,11 @@ namespace PPTWebBrowserAddIn
 
         .tab-btn {
             flex: 1;
-            padding: 10px 0;
+            padding: 9px 0;
             text-align: center;
             font-size: 14px;
             font-weight: 600;
-            border-radius: 13px;
+            border-radius: 12px;
             color: var(--text-secondary);
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1055,7 +1150,7 @@ namespace PPTWebBrowserAddIn
         .tab-btn.active {
             background: #ffffff;
             color: var(--text-primary);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
         }
 
         /* Tab Content Panes */
@@ -1074,7 +1169,7 @@ namespace PPTWebBrowserAddIn
         }
 
         @keyframes paneFadeIn {
-            from { opacity: 0; transform: translateY(4px); }
+            from { opacity: 0; transform: translateY(3px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -1082,54 +1177,52 @@ namespace PPTWebBrowserAddIn
         .apple-card {
             width: 100%;
             background: var(--card-bg);
-            border-radius: 28px;
+            border-radius: 26px;
             border: 1px solid var(--card-border);
-            padding: 22px 20px;
+            padding: 22px 18px;
             display: flex;
             flex-direction: column;
             box-shadow: var(--card-shadow);
-            gap: 16px;
+            gap: 14px;
         }
 
         .card-header-title {
             font-size: 13px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: -0.2px;
             color: var(--text-secondary);
         }
 
         /* 🎮 Tab 1: Navigation Controls */
         .next-hero-btn {
             width: 100%;
-            height: 105px;
+            height: 98px;
             background: var(--apple-blue);
-            border-radius: 22px;
+            border-radius: 20px;
             border: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 10px;
             color: #ffffff;
             cursor: pointer;
             transition: all 0.12s ease;
-            box-shadow: 0 6px 20px rgba(0, 113, 227, 0.25);
+            box-shadow: 0 6px 18px rgba(0, 113, 227, 0.24);
         }
 
         .next-hero-btn:active {
-            transform: scale(0.97);
+            transform: scale(0.98);
             background: var(--apple-blue-active);
-            box-shadow: 0 2px 8px rgba(0, 113, 227, 0.15);
         }
 
         .next-hero-btn svg {
-            width: 32px;
-            height: 32px;
+            width: 26px;
+            height: 26px;
             fill: #ffffff;
         }
 
         .next-hero-btn span {
-            font-size: 19px;
+            font-size: 18px;
             font-weight: 600;
             letter-spacing: -0.3px;
         }
@@ -1142,15 +1235,15 @@ namespace PPTWebBrowserAddIn
         }
 
         .flat-btn {
-            height: 56px;
+            height: 52px;
             background: var(--btn-neutral-bg);
-            border-radius: 18px;
+            border-radius: 16px;
             border: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            font-size: 15px;
+            gap: 7px;
+            font-size: 14px;
             font-weight: 600;
             color: var(--text-primary);
             cursor: pointer;
@@ -1158,109 +1251,77 @@ namespace PPTWebBrowserAddIn
         }
 
         .flat-btn:active {
-            transform: scale(0.96);
+            transform: scale(0.97);
             background: var(--btn-neutral-active);
         }
 
         .flat-btn svg {
-            width: 18px;
-            height: 18px;
+            width: 17px;
+            height: 17px;
             fill: var(--text-primary);
         }
 
-        /* Volume Card & Slider (iOS Control Center Style) */
-        .volume-container {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .volume-header {
+        /* iOS Control Center Volume Capsule Slider */
+        .volume-header-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .volume-val-badge {
+        .volume-badge {
             font-size: 13px;
             font-weight: 600;
             color: var(--apple-blue);
-            background: #edf5ff;
-            padding: 2px 8px;
-            border-radius: 8px;
         }
 
-        .volume-slider-row {
+        .volume-capsule-wrapper {
+            position: relative;
             width: 100%;
+            height: 54px;
+            background: #e5e5ea;
+            border-radius: 18px;
+            overflow: hidden;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 12px;
-            background: var(--btn-neutral-bg);
-            padding: 10px 16px;
-            border-radius: 20px;
+            touch-action: none;
         }
 
-        .volume-slider-row svg {
+        .volume-capsule-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            background: var(--apple-blue);
+            border-radius: 18px;
+            transition: width 0.06s ease;
+            pointer-events: none;
+        }
+
+        .volume-capsule-content {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .volume-icon-left {
+            width: 20px;
+            height: 20px;
+            fill: #ffffff;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+        }
+
+        .volume-icon-right {
             width: 20px;
             height: 20px;
             fill: var(--text-secondary);
-            flex-shrink: 0;
-        }
-
-        .apple-range {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #d1d1d6;
-            outline: none;
-            transition: background 0.15s ease;
-        }
-
-        .apple-range::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #ffffff;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.2);
-            border: none;
-            transition: transform 0.1s ease;
-        }
-
-        .apple-range::-webkit-slider-thumb:active {
-            transform: scale(1.2);
-        }
-
-        .volume-presets {
-            display: flex;
-            gap: 8px;
-            width: 100%;
-        }
-
-        .preset-pill {
-            flex: 1;
-            padding: 8px 0;
-            background: #ffffff;
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-align: center;
-            cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-            transition: all 0.12s ease;
-        }
-
-        .preset-pill:active {
-            transform: scale(0.96);
-            background: var(--btn-neutral-bg);
-            color: var(--text-primary);
         }
 
         /* 📷 Tab 2: Visualizer Camera */
@@ -1271,36 +1332,34 @@ namespace PPTWebBrowserAddIn
 
         .snap-hero-btn {
             width: 100%;
-            height: 90px;
+            height: 84px;
             background: var(--apple-green);
-            border-radius: 24px;
+            border-radius: 22px;
             border: none;
             color: #ffffff;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
             letter-spacing: -0.3px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 9px;
             cursor: pointer;
             transition: all 0.12s ease;
-            box-shadow: 0 6px 22px rgba(52, 199, 89, 0.28);
+            box-shadow: 0 6px 18px rgba(52, 199, 89, 0.25);
         }
 
         .snap-hero-btn:active {
-            transform: scale(0.97);
+            transform: scale(0.98);
             background: var(--apple-green-active);
-            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.15);
         }
 
         .snap-hero-btn svg {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             fill: #ffffff;
         }
 
-        /* Invisible native camera file trigger */
         #nativeCameraInput {
             position: absolute;
             top: 0;
@@ -1314,10 +1373,10 @@ namespace PPTWebBrowserAddIn
 
         .preview-box {
             width: 100%;
-            height: 190px;
+            height: 180px;
             background: #f8f8fa;
             border: 1px dashed #d1d1d6;
-            border-radius: 20px;
+            border-radius: 18px;
             overflow: hidden;
             display: flex;
             align-items: center;
@@ -1343,17 +1402,17 @@ namespace PPTWebBrowserAddIn
         }
 
         .preview-placeholder svg {
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             fill: #aeaeb2;
         }
 
         .exit-btn {
             width: 100%;
-            height: 52px;
+            height: 48px;
             background: var(--apple-red-bg);
             border: 1px solid rgba(255, 59, 48, 0.12);
-            border-radius: 18px;
+            border-radius: 16px;
             color: var(--apple-red);
             font-size: 14px;
             font-weight: 600;
@@ -1367,7 +1426,7 @@ namespace PPTWebBrowserAddIn
 
         .exit-btn:active {
             transform: scale(0.97);
-            background: rgba(255, 59, 48, 0.15);
+            background: rgba(255, 59, 48, 0.16);
         }
     </style>
 </head>
@@ -1375,25 +1434,23 @@ namespace PPTWebBrowserAddIn
 
     <!-- Top Minimalist Header -->
     <div class=""app-header"">
-        <div class=""brand-title"">
-            <span>YuLink</span>
-        </div>
+        <div class=""brand-title"">YuLink</div>
         <div class=""status-badge"">
             <div id=""ledDot"" class=""status-dot""></div>
-            <span id=""statusText"">已连接 PPT</span>
+            <span>已连接 PPT</span>
         </div>
     </div>
 
     <!-- Apple iOS Segmented Control Switcher -->
     <div class=""tab-bar-container"">
-        <button class=""tab-btn active"" onclick=""switchTab('remote')"">🎮 遥控翻页</button>
-        <button class=""tab-btn"" onclick=""switchTab('camera')"">📷 实物展台</button>
+        <button class=""tab-btn active"" onclick=""switchTab('remote')"">遥控翻页</button>
+        <button class=""tab-btn"" onclick=""switchTab('camera')"">实物展台</button>
     </div>
 
     <!-- 🎮 Tab 1: Minimalist Remote Controller Pane -->
     <div id=""pane-remote"" class=""tab-pane active"">
         
-        <!-- Primary Flip Control Card -->
+        <!-- Primary Slideshow Control Card -->
         <div class=""apple-card"">
             <div class=""card-header-title"">幻灯片放映控制</div>
 
@@ -1413,36 +1470,32 @@ namespace PPTWebBrowserAddIn
                 </button>
             </div>
 
+            <!-- Practical Presentation Utilities -->
             <div class=""nav-grid-two"">
                 <button class=""flat-btn"" onclick=""sendCmd('/black')"">
-                    <svg viewBox=""0 0 24 24""><path d=""M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z""/></svg>
+                    <svg viewBox=""0 0 24 24""><path d=""M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z""/></svg>
                     <span>一键黑屏</span>
                 </button>
-                <button class=""flat-btn"" onclick=""rotateScreen()"">
-                    <svg viewBox=""0 0 24 24""><path d=""M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.6-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37.5 6 3.41 6 6.91 0 1.25-.34 2.43-.93 3.44l1.46 1.46C20.45 16.38 21 14.77 21 13c0-4.42-3.21-8.08-7.39-8.73z""/></svg>
-                    <span>大屏旋转90°</span>
+                <button class=""flat-btn"" onclick=""sendCmd('/first_slide')"">
+                    <svg viewBox=""0 0 24 24""><path d=""M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z""/></svg>
+                    <span>返回第一页</span>
                 </button>
             </div>
         </div>
 
-        <!-- Volume Control Card (iOS Control Center Style) -->
+        <!-- Windows Native Master Volume Card (iOS Control Center Capsule Slider) -->
         <div class=""apple-card"">
-            <div class=""volume-container"">
-                <div class=""volume-header"">
-                    <span class=""card-header-title"">多媒体音量调节</span>
-                    <span id=""lblVolume"" class=""volume-val-badge"">50%</span>
-                </div>
+            <div class=""volume-header-row"">
+                <span class=""card-header-title"">系统主音量</span>
+                <span id=""lblVolume"" class=""volume-badge"">50%</span>
+            </div>
 
-                <div class=""volume-slider-row"">
-                    <svg viewBox=""0 0 24 24""><path d=""M7 9v6h4l5 5V4L11 9H7z""/></svg>
-                    <input id=""sliderVolume"" class=""apple-range"" type=""range"" min=""0"" max=""100"" value=""50"" oninput=""onVolumeInput(this.value)"" />
-                    <svg viewBox=""0 0 24 24""><path d=""M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z""/></svg>
-                </div>
-
-                <div class=""volume-presets"">
-                    <button class=""preset-pill"" onclick=""setVolumePreset(0)"">🔇 静音 (0%)</button>
-                    <button class=""preset-pill"" onclick=""setVolumePreset(50)"">🔉 标准 (50%)</button>
-                    <button class=""preset-pill"" onclick=""setVolumePreset(100)"">🔊 最大 (100%)</button>
+            <!-- iOS Control Center Fluid Drag Capsule Slider -->
+            <div id=""volCapsule"" class=""volume-capsule-wrapper"">
+                <div id=""volFill"" class=""volume-capsule-fill"" style=""width: 50%;""></div>
+                <div class=""volume-capsule-content"">
+                    <svg class=""volume-icon-left"" viewBox=""0 0 24 24""><path d=""M7 9v6h4l5 5V4L11 9H7z""/></svg>
+                    <svg class=""volume-icon-right"" viewBox=""0 0 24 24""><path d=""M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z""/></svg>
                 </div>
             </div>
         </div>
@@ -1453,15 +1506,14 @@ namespace PPTWebBrowserAddIn
     <div id=""pane-camera"" class=""tab-pane"">
         
         <div class=""apple-card"">
-            <div class=""card-header-title"">无线实物展台 · 拍照讲评作业</div>
+            <div class=""card-header-title"">实物展台 · 拍照讲评作业</div>
 
-            <!-- Native Camera Snap Button with Invisible File Input (100% Reliable on all Phones/Browsers) -->
+            <!-- Native Optical Camera Trigger (100% Reliable, Zero Permission Friction) -->
             <div class=""snap-hero-wrapper"">
                 <button class=""snap-hero-btn"">
                     <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
-                    <span>📸 点击拍照投屏讲评</span>
+                    <span>拍照投屏讲评</span>
                 </button>
-                <!-- Native Camera Input (Zero permission barrier, full optical 4K resolution) -->
                 <input id=""nativeCameraInput"" type=""file"" accept=""image/*"" capture=""environment"" onchange=""handleNativePhoto(this)"" />
             </div>
 
@@ -1470,14 +1522,14 @@ namespace PPTWebBrowserAddIn
                 <img id=""previewThumb"" alt=""Photo Preview"" />
                 <div id=""previewPlaceholder"" class=""preview-placeholder"">
                     <svg viewBox=""0 0 24 24""><path d=""M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z""/></svg>
-                    <span>拍摄作业后此处可预览并秒级上大屏</span>
+                    <span>拍摄后在此预览并秒级上大屏</span>
                 </div>
             </div>
 
             <div class=""nav-grid-two"">
                 <button class=""flat-btn"" onclick=""rotateScreen()"">
                     <svg viewBox=""0 0 24 24""><path d=""M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.6-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37.5 6 3.41 6 6.91 0 1.25-.34 2.43-.93 3.44l1.46 1.46C20.45 16.38 21 14.77 21 13c0-4.42-3.21-8.08-7.39-8.73z""/></svg>
-                    <span>旋转 90°</span>
+                    <span>大屏旋转90°</span>
                 </button>
                 <button class=""flat-btn"" onclick=""triggerCameraAgain()"">
                     <svg viewBox=""0 0 24 24""><path d=""M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z""/></svg>
@@ -1486,7 +1538,7 @@ namespace PPTWebBrowserAddIn
             </div>
 
             <button class=""exit-btn"" onclick=""stopVisualizer()"">
-                <span>⏹️ 退出展台 · 恢复原幻灯片</span>
+                <span>退出展台 · 恢复原幻灯片</span>
             </button>
         </div>
 
@@ -1533,24 +1585,74 @@ namespace PPTWebBrowserAddIn
             }, 180);
         }
 
-        // Volume Control
-        let volTimer = null;
-        function onVolumeInput(val) {
-            document.getElementById('lblVolume').innerText = val + '%';
-            if (volTimer) clearTimeout(volTimer);
-            volTimer = setTimeout(() => {
-                const floatVal = (val / 100).toFixed(2);
-                fetch('/volume?val=' + floatVal);
-            }, 80);
+        // iOS Control Center Volume Capsule Drag Logic
+        let currentVol = 0.5;
+        const capsule = document.getElementById('volCapsule');
+        const fill = document.getElementById('volFill');
+        const badge = document.getElementById('lblVolume');
+        let isDraggingVol = false;
+        let volThrottle = null;
+
+        function updateVolumeUI(ratio, sendToServer) {
+            ratio = Math.max(0, Math.min(1, ratio));
+            currentVol = ratio;
+            const percent = Math.round(ratio * 100);
+            fill.style.width = percent + '%';
+            badge.innerText = percent + '%';
+
+            if (sendToServer) {
+                if (volThrottle) clearTimeout(volThrottle);
+                volThrottle = setTimeout(() => {
+                    fetch('/volume?val=' + ratio.toFixed(2));
+                }, 40);
+            }
         }
 
-        function setVolumePreset(val) {
+        function handleCapsulePointer(e) {
+            const rect = capsule.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const ratio = (clientX - rect.left) / rect.width;
+            updateVolumeUI(ratio, true);
+        }
+
+        capsule.addEventListener('mousedown', (e) => {
+            isDraggingVol = true;
             vibrate();
-            document.getElementById('sliderVolume').value = val;
-            onVolumeInput(val);
-        }
+            handleCapsulePointer(e);
+        });
 
-        // Visualizer Native Photo Capture (100% reliable on all mobile phones over HTTP)
+        capsule.addEventListener('touchstart', (e) => {
+            isDraggingVol = true;
+            vibrate();
+            handleCapsulePointer(e);
+        }, { passive: false });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingVol) handleCapsulePointer(e);
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isDraggingVol) handleCapsulePointer(e);
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => { isDraggingVol = false; });
+        window.addEventListener('touchend', () => { isDraggingVol = false; });
+
+        // Load initial Windows master volume
+        async function fetchSystemVolume() {
+            try {
+                const res = await fetch('/api/get_system_volume');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (typeof data.volume === 'number') {
+                        updateVolumeUI(data.volume, false);
+                    }
+                }
+            } catch (e) {}
+        }
+        fetchSystemVolume();
+
+        // Visualizer Native Photo Capture (100% reliable on all phones over HTTP)
         function triggerCameraAgain() {
             document.getElementById('nativeCameraInput').click();
         }
@@ -1562,7 +1664,6 @@ namespace PPTWebBrowserAddIn
                 reader.onload = async function(e) {
                     const base64 = e.target.result;
                     
-                    // Show in local preview box
                     const thumb = document.getElementById('previewThumb');
                     const placeholder = document.getElementById('previewPlaceholder');
                     thumb.src = base64;
@@ -1577,7 +1678,7 @@ namespace PPTWebBrowserAddIn
                             body: JSON.stringify({ image: base64 })
                         });
                         if (res.ok) {
-                            alert('📸 照片已秒级投射到 PPT 大屏！可在投影屏幕上使用悬浮画笔直接圈画打分批改。');
+                            alert('照片已秒级投射到 PPT 大屏！可在投影屏幕上使用悬浮画笔直接圈画打分批改。');
                         }
                     } catch (err) {
                         alert('上传失败: ' + err.message);
