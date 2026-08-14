@@ -1124,7 +1124,9 @@ namespace PPTWebBrowserAddIn
             gap: 8px;
             overflow-x: auto;
             padding: 4px 0 12px 0;
+            -webkit-overflow-scrolling: touch;
         }
+        .queue-bar::-webkit-scrollbar { display: none; }
         .queue-pill {
             background: #1c1c1e;
             border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1188,7 +1190,7 @@ namespace PPTWebBrowserAddIn
         <div id=""lblHeaderTitle"" class=""title"">作业试卷讲评</div>
     </div>
 
-    <!-- Homework Queue Selector -->
+    <!-- Read-Only Independent Homework Queue Selector -->
     <div id=""queueBar"" class=""queue-bar"" style=""display: none;""></div>
 
     <div class=""img-card"">
@@ -1199,13 +1201,15 @@ namespace PPTWebBrowserAddIn
         <img id=""photoImg"" alt=""Homework Photo"" />
     </div>
 
-    <div class=""hint-bar"">双指捏合缩放 · 长按可保存原图</div>
+    <div class=""hint-bar"">双指捏合缩放 · 独立纯净浏览 · 长按可保存原图</div>
 
     <script>
         let curVer = -1;
-        let curPhotoId = -1;
+        let localSelectedIdx = -1;
+        let lastQueueItems = [];
 
         function renderQueue(items, activeIdx) {
+            lastQueueItems = items;
             const bar = document.getElementById('queueBar');
             if (!items || items.length <= 1) {
                 bar.style.display = 'none';
@@ -1213,19 +1217,34 @@ namespace PPTWebBrowserAddIn
             }
             bar.style.display = 'flex';
             bar.innerHTML = '';
+            
+            const highlightIdx = (localSelectedIdx >= 0 && localSelectedIdx < items.length) ? localSelectedIdx : activeIdx;
             items.forEach((it, idx) => {
                 const btn = document.createElement('div');
-                btn.className = 'queue-pill' + (idx === activeIdx ? ' active' : '');
+                btn.className = 'queue-pill' + (idx === highlightIdx ? ' active' : '');
                 btn.innerText = it.title || ('作业 ' + (idx + 1));
-                btn.onclick = () => selectHomework(idx);
+                // Purely local display switch, NEVER calls server API or alters PPT!
+                btn.onclick = () => selectLocalHomework(idx);
                 bar.appendChild(btn);
             });
         }
 
-        async function selectHomework(idx) {
-            try {
-                await fetch('/api/select_cast?index=' + idx);
-            } catch (e) {}
+        function selectLocalHomework(idx) {
+            if (idx < 0 || idx >= lastQueueItems.length) return;
+            localSelectedIdx = idx;
+            const item = lastQueueItems[idx];
+            const img = document.getElementById('photoImg');
+            const title = document.getElementById('lblHeaderTitle');
+            
+            img.src = item.url;
+            img.style.transform = 'rotate(' + (item.rotation || 0) + 'deg)';
+            title.innerText = (item.title || '作业讲评') + ' (' + (idx + 1) + '/' + lastQueueItems.length + ')';
+            
+            const pills = document.querySelectorAll('.queue-pill');
+            pills.forEach((p, i) => {
+                if (i === idx) p.classList.add('active');
+                else p.classList.remove('active');
+            });
         }
 
         async function fetchPhoto() {
@@ -1240,17 +1259,16 @@ namespace PPTWebBrowserAddIn
                         const title = document.getElementById('lblHeaderTitle');
 
                         if (data.mode === 'photo' && data.activeId > 0) {
-                            if (data.activeId !== curPhotoId) {
-                                curPhotoId = data.activeId;
+                            if (localSelectedIdx < 0 || localSelectedIdx >= data.items.length) {
                                 img.src = data.photoUrl;
+                                img.style.transform = 'rotate(' + (data.rotation || 0) + 'deg)';
+                                title.innerText = (data.activeTitle || '作业讲评') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
                             }
-                            img.style.transform = 'rotate(' + (data.rotation || 0) + 'deg)';
                             img.style.display = 'block';
                             empty.style.display = 'none';
-                            title.innerText = (data.activeTitle || '作业讲评') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
                             renderQueue(data.items, data.activeIndex);
                         } else {
-                            curPhotoId = -1;
+                            localSelectedIdx = -1;
                             img.style.display = 'none';
                             empty.style.display = 'flex';
                             title.innerText = '作业试卷讲评';
@@ -1259,7 +1277,7 @@ namespace PPTWebBrowserAddIn
                     }
                 }
             } catch (e) {}
-            setTimeout(fetchPhoto, 250);
+            setTimeout(fetchPhoto, 300);
         }
         fetchPhoto();
     </script>
@@ -1267,10 +1285,6 @@ namespace PPTWebBrowserAddIn
 </html>";
         }
 
-        // =========================================================================
-        // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
-        // With Multi-Homework Badge + Vector Rotate Button (Zero-Lag Metadata Polling)
-        // =========================================================================
         private string GetCastViewHtml()
         {
             return @"<!DOCTYPE html>

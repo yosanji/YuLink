@@ -760,6 +760,7 @@ namespace PPTWebBrowserAddIn
             }
 
             string shareUrl = ReplaceLANUrl(currentUrl);
+            if (shareUrl.Contains("cast_view")) { shareUrl = shareUrl.Replace("cast_view", "view_photo"); }
 
             try
             {
@@ -1146,7 +1147,7 @@ namespace PPTWebBrowserAddIn
                     }
                 };
 
-                // Yellow Minimize Button (macOS #FFBD2E)
+                // Yellow Refresh / Reload Button (macOS #FFBD2E - replaces useless minimize)
                 _btnRefresh = new Button();
                 _btnRefresh.Size = new Size(20, 20);
                 _btnRefresh.Location = new Point(36, 12);
@@ -1154,8 +1155,14 @@ namespace PPTWebBrowserAddIn
                 _btnRefresh.FlatAppearance.BorderSize = 0;
                 _btnRefresh.BackColor = Color.Transparent;
                 _btnRefresh.Cursor = Cursors.Hand;
-                _btnRefresh.Click += (s, e) => { this.MinimizeWindow(); };
-                _btnRefresh.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.MinimizeWindow(); };
+                _btnRefresh.Click += (s, e) => { 
+                    try { if (_webView != null && _webView.CoreWebView2 != null) _webView.Reload(); } catch {}
+                };
+                _btnRefresh.MouseDown += (s, e) => { 
+                    if (e.Button == MouseButtons.Left) {
+                        try { if (_webView != null && _webView.CoreWebView2 != null) _webView.Reload(); } catch {}
+                    }
+                };
                 _btnRefresh.Paint += (s, e) => {
                     var g = e.Graphics;
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -1218,7 +1225,7 @@ namespace PPTWebBrowserAddIn
                 };
 
                 toolTip.SetToolTip(btnLiquidGlass, "关闭 (Close)");
-                toolTip.SetToolTip(_btnRefresh, "最小化 (Minimize)");
+                toolTip.SetToolTip(_btnRefresh, "刷新网页 (Reload)");
                 toolTip.SetToolTip(_btnFullScreen, "全屏 (Fullscreen)");
                 toolTip.SetToolTip(_btnInk, "标注 (Ink Draw)");
 
