@@ -80,13 +80,18 @@
 
 ## 🛠️ HOW - 如何安装与使用？
 
-### 1. 系统运行环境要求
+### 1. 系统运行环境要求与依赖下载
 
-* **操作系统**：Windows 10 / Windows 11 (64位)
-* **支持宿主**：Microsoft PowerPoint (2013 / 2016 / 2019 / 2021 / Office 365) 或 WPS 演示 (WPP)
-* **依赖环境**：
-  - [.NET Framework 4.8.1](https://dotnet.microsoft.com/download/dotnet-framework/net481)
-  - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (Win10/11 通常已自带)
+YuLink 基于现代化 Chromium WebView2 与 .NET 体系构建。绝大多数 Windows 10 (2004+) 与 Windows 11 设备已预装以下环境；若系统缺失，可点击下方微软官方通道一键下载：
+
+| 依赖组件 | 最低版本要求 | 微软官方在线安装包 | 微软官方离线独立安装包 | 说明 |
+| :--- | :--- | :--- | :--- | :--- |
+| **.NET Framework** | `4.8` 或 `4.8.1` | [🌐 在线安装](https://go.microsoft.com/fwlink/?LinkId=2085155) | [📦 离线安装包 (推荐)](https://go.microsoft.com/fwlink/?linkid=2088631) | 基础运行框架，提供 VSTO 与 C# 支持 |
+| **Edge WebView2 Runtime** | Evergreen 最新版 | [🌐 在线安装 (推荐)](https://go.microsoft.com/fwlink/p/?LinkId=2124703) | [📦 x64 离线独立包](https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/038e5be3-91a2-4c14-b2eb-2fac728c8c2c/MicrosoftEdgeWebView2RuntimeInstallerX64.exe) | Chromium 极速网页渲染与 DOM 拦截内核 |
+| **Office 宿主平台** | 2013 / 2016 / 2019 / 2021 / 365 或 WPS 演示 | 宿主本地安装即可 | - | 原生无缝集成 |
+
+> [!TIP]
+> 运行 **`一键安装.bat`** 时，脚本会自动诊断本机是否已就绪上述依赖。若检测到缺失，控制台会输出提示与直达下载链接。
 
 ---
 

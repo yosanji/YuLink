@@ -83,13 +83,18 @@ Traditional methods of presenting web content in slides suffer from **awkward wi
 
 ## 🛠️ HOW - Installation & Usage
 
-### 1. System Requirements
+### 1. System Requirements & Prerequisite Downloads
 
-* **OS**: Windows 10 / Windows 11 (64-bit)
-* **Supported Hosts**: Microsoft PowerPoint (2013 / 2016 / 2019 / 2021 / Office 365) or Kingsoft WPS Presentation (WPP)
-* **Runtimes**:
-  - [.NET Framework 4.8.1](https://dotnet.microsoft.com/download/dotnet-framework/net481)
-  - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (Pre-installed on most Win10/11 systems)
+YuLink is built upon modern Chromium WebView2 and the .NET Framework. Most Windows 10 (2004+) and Windows 11 systems have these pre-installed. If your environment lacks them, download directly from official Microsoft links below:
+
+| Component | Minimum Version | Microsoft Online Installer | Microsoft Standalone Offline Installer | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| **.NET Framework** | `4.8` or `4.8.1` | [🌐 Web Installer](https://go.microsoft.com/fwlink/?LinkId=2085155) | [📦 Offline Installer (Recommended)](https://go.microsoft.com/fwlink/?linkid=2088631) | Base VSTO and C# presentation runtime |
+| **Edge WebView2 Runtime** | Evergreen Latest | [🌐 Web Bootstrapper](https://go.microsoft.com/fwlink/p/?LinkId=2124703) | [📦 x64 Standalone Package](https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/038e5be3-91a2-4c14-b2eb-2fac728c8c2c/MicrosoftEdgeWebView2RuntimeInstallerX64.exe) | Chromium web engine & DOM interception |
+| **Office Host** | 2013 / 2016 / 2019 / 2021 / 365 or WPS | Local installation | - | Native slideshow host |
+
+> [!TIP]
+> **`一键安装.bat`** automatically diagnoses these dependencies during installation and outputs direct download links if any are missing.
 
 ---
 

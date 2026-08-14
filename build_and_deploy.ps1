@@ -10,34 +10,53 @@ $tempDir = Join-Path $srcDir "PPTBuildTemp"
 $extractedDir = Join-Path $srcDir "PowerPointAddInExtracted"
 $outDll = "$extractedDir\PowerPointAddIn.dll"
 
-# Bootstrap: ensure PowerPointAddInExtracted directory and manifest stubs exist.
-# On first run (or after git clone), copy them from the legacy location if present.
+# Ensure PowerPointAddInExtracted directory exists
 if (!(Test-Path $extractedDir)) {
     New-Item -ItemType Directory -Path $extractedDir -Force | Out-Null
 }
-$legacyDir = "D:\desktop\PowerPointAddInExtracted"
-$bootstrapFiles = @("PowerPointAddIn.vsto", "PowerPointAddIn.dll.manifest",
-    "Microsoft.Office.Tools.Common.v4.0.Utilities.dll",
-    "Microsoft.Web.WebView2.Core.dll",
-    "Microsoft.Web.WebView2.WinForms.dll",
-    "QRCoder.dll", "Newtonsoft.Json.dll")
-if (Test-Path $legacyDir) {
-    foreach ($bf in $bootstrapFiles) {
-        $bfSrc = Join-Path $legacyDir $bf
-        $bfDst = Join-Path $extractedDir $bf
-        if ((Test-Path $bfSrc) -and !(Test-Path $bfDst)) {
-            Copy-Item -Path $bfSrc -Destination $bfDst -Force
-            Write-Host "Bootstrap: copied $bf"
-        }
+
+# =========================================================================
+# Pre-Flight Dependency Diagnostic
+# =========================================================================
+Write-Host "Checking system dependencies..." -ForegroundColor Cyan
+
+# 1. Check .NET Framework 4.8+
+$net48Installed = $false
+try {
+    $release = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction SilentlyContinue).Release
+    if ($release -and $release -ge 528040) { # 528040 = .NET 4.8
+        $net48Installed = $true
     }
-    # Also copy runtimes folder (WebView2 native DLLs)
-    $runtimesSrc = Join-Path $legacyDir "runtimes"
-    $runtimesDst = Join-Path $extractedDir "runtimes"
-    if ((Test-Path $runtimesSrc) -and !(Test-Path $runtimesDst)) {
-        Copy-Item -Path $runtimesSrc -Destination $runtimesDst -Recurse -Force
-        Write-Host "Bootstrap: copied runtimes/"
+} catch {}
+
+if ($net48Installed) {
+    Write-Host "  [OK] .NET Framework 4.8+ detected." -ForegroundColor Green
+} else {
+    Write-Host "  [WARN] .NET Framework 4.8+ not detected. If installation fails, download from:" -ForegroundColor Yellow
+    Write-Host "         https://go.microsoft.com/fwlink/?linkid=2088631" -ForegroundColor Gray
+}
+
+# 2. Check Edge WebView2 Runtime
+$wv2Installed = $false
+$wv2Keys = @(
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}",
+    "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}",
+    "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}"
+)
+foreach ($k in $wv2Keys) {
+    if (Test-Path $k) {
+        $pv = (Get-ItemProperty -Path $k -ErrorAction SilentlyContinue).pv
+        if ($pv -and $pv -ne "0.0.0.0") { $wv2Installed = $true; break }
     }
 }
+
+if ($wv2Installed) {
+    Write-Host "  [OK] Microsoft Edge WebView2 Runtime detected ($pv)." -ForegroundColor Green
+} else {
+    Write-Host "  [WARN] Microsoft Edge WebView2 Runtime not detected. Web embedding requires it." -ForegroundColor Yellow
+    Write-Host "         Download: https://go.microsoft.com/fwlink/p/?LinkId=2124703" -ForegroundColor Gray
+}
+# =========================================================================
 
 
 Write-Host "Creating temp directory..."
