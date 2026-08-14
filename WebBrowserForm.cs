@@ -247,67 +247,67 @@ namespace PPTWebBrowserAddIn
                             const css = `
                                 #ppt-web-floating-menu-container {
                                     position: fixed;
-                                    bottom: 80px;
-                                    right: 30px;
+                                    bottom: 90px;
+                                    right: 36px;
                                     z-index: 1000000;
                                     user-select: none;
-                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                                    width: 48px;
-                                    height: 48px;
+                                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+                                    width: 58px;
+                                    height: 58px;
                                 }
                                 .ppt-skeuo-circle {
-                                    width: 48px;
-                                    height: 48px;
+                                    width: 58px;
+                                    height: 58px;
                                     border-radius: 50%;
-                                    background: linear-gradient(135deg, #ffffff, #e1e1e6);
-                                    border: 1px solid #c8c8cd;
-                                    box-shadow: 0 4px 12px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.8), inset 0 -2px 4px rgba(0,0,0,0.05);
+                                    background: linear-gradient(145deg, #ffffff, #e6e6eb);
+                                    border: 1.5px solid rgba(255, 255, 255, 0.9);
+                                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.95);
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
                                     cursor: grab;
-                                    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+                                    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
                                 }
                                 .ppt-skeuo-circle:hover {
-                                    transform: scale(1.05);
-                                    box-shadow: 0 6px 16px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,255,255,0.9);
+                                    transform: scale(1.08);
+                                    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22), inset 0 2px 4px rgba(255, 255, 255, 1);
                                 }
                                 .ppt-skeuo-circle:active {
                                     cursor: grabbing;
-                                    transform: scale(0.95);
+                                    transform: scale(0.94);
                                 }
                                 .ppt-skeuo-circle svg {
-                                    width: 22px;
-                                    height: 22px;
-                                    fill: #4a4a4e;
+                                    width: 28px;
+                                    height: 28px;
+                                    fill: #3a3a3c;
                                 }
                                 .ppt-floating-tray {
                                     position: absolute;
                                     top: 50%;
                                     display: flex;
                                     align-items: center;
-                                    height: 46px;
+                                    height: 56px;
                                     white-space: nowrap;
-                                    background: rgba(255, 255, 255, 0.85);
-                                    backdrop-filter: blur(20px);
-                                    -webkit-backdrop-filter: blur(20px);
-                                    border-radius: 23px;
-                                    border: 1px solid rgba(210, 210, 215, 0.7);
-                                    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-                                    padding: 0 12px;
+                                    background: rgba(255, 255, 255, 0.92);
+                                    backdrop-filter: blur(25px);
+                                    -webkit-backdrop-filter: blur(25px);
+                                    border-radius: 28px;
+                                    border: 1px solid rgba(210, 210, 215, 0.8);
+                                    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
+                                    padding: 0 16px;
                                     opacity: 0;
                                     pointer-events: none;
                                     /* default: expand to the LEFT of the button */
-                                    right: calc(100% + 12px);
+                                    right: calc(100% + 14px);
                                     left: auto;
                                     transform: translateY(-50%) scaleX(0.85);
                                     transform-origin: right center;
-                                    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                                                transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+                                    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                                                transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
                                 }
                                 .ppt-floating-tray.expand-right {
                                     right: auto;
-                                    left: calc(100% + 12px);
+                                    left: calc(100% + 14px);
                                     transform: translateY(-50%) scaleX(0.85);
                                     transform-origin: left center;
                                 }
@@ -317,74 +317,78 @@ namespace PPTWebBrowserAddIn
                                     pointer-events: auto;
                                 }
                                 .ppt-tray-divider {
-                                    width: 1px;
-                                    height: 20px;
-                                    background: rgba(210, 210, 215, 0.8);
+                                    width: 1.5px;
+                                    height: 26px;
+                                    background: rgba(200, 200, 205, 0.8);
                                     margin: 0 10px;
                                 }
                                 .ppt-color-dot {
-                                    width: 16px;
-                                    height: 16px;
+                                    width: 22px;
+                                    height: 22px;
                                     border-radius: 50%;
-                                    margin: 0 5px;
+                                    margin: 0 6px;
                                     cursor: pointer;
-                                    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.1);
-                                    transition: transform 0.15s ease;
+                                    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25), 0 2px 5px rgba(0,0,0,0.12);
+                                    transition: transform 0.15s ease, box-shadow 0.15s ease;
                                 }
                                 .ppt-color-dot:hover {
-                                    transform: scale(1.2);
+                                    transform: scale(1.22);
                                 }
                                 .ppt-color-dot.active {
-                                    box-shadow: 0 0 0 2px #007aff, inset 0 1px 3px rgba(0,0,0,0.2);
+                                    box-shadow: 0 0 0 3px #007aff, inset 0 1px 3px rgba(0,0,0,0.25);
                                 }
                                 .ppt-size-dot {
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
-                                    width: 22px;
-                                    height: 22px;
-                                    margin: 0 3px;
+                                    width: 30px;
+                                    height: 30px;
+                                    margin: 0 4px;
                                     cursor: pointer;
                                     border-radius: 50%;
                                     transition: background 0.15s ease;
                                 }
                                 .ppt-size-dot:hover {
-                                    background: rgba(0,0,0,0.05);
+                                    background: rgba(0, 0, 0, 0.06);
                                 }
                                 .ppt-size-dot.active {
-                                    background: rgba(0,122,255,0.1);
+                                    background: rgba(0, 122, 255, 0.14);
                                 }
                                 .ppt-size-dot::after {
                                     content: '';
                                     display: block;
-                                    background: #4a4a4e;
+                                    background: #3a3a3c;
                                     border-radius: 50%;
                                 }
-                                .ppt-size-dot[data-size='2']::after { width: 3px; height: 3px; }
-                                .ppt-size-dot[data-size='5']::after { width: 6px; height: 6px; }
-                                .ppt-size-dot[data-size='10']::after { width: 10px; height: 10px; }
+                                .ppt-size-dot[data-size='2']::after { width: 4px; height: 4px; }
+                                .ppt-size-dot[data-size='5']::after { width: 8px; height: 8px; }
+                                .ppt-size-dot[data-size='10']::after { width: 14px; height: 14px; }
                                 
                                 .ppt-tray-btn {
-                                    width: 28px;
-                                    height: 28px;
-                                    border-radius: 6px;
+                                    width: 36px;
+                                    height: 36px;
+                                    border-radius: 10px;
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
                                     cursor: pointer;
-                                    margin: 0 3px;
-                                    transition: background 0.15s ease;
+                                    margin: 0 4px;
+                                    transition: background 0.15s ease, transform 0.12s ease;
                                 }
                                 .ppt-tray-btn:hover {
-                                    background: rgba(0,0,0,0.05);
+                                    background: rgba(0, 0, 0, 0.07);
+                                    transform: scale(1.08);
+                                }
+                                .ppt-tray-btn:active {
+                                    transform: scale(0.92);
                                 }
                                 .ppt-tray-btn.active {
-                                    background: rgba(255, 59, 48, 0.15);
+                                    background: rgba(255, 59, 48, 0.16);
                                 }
                                 .ppt-tray-btn svg {
-                                    width: 16px;
-                                    height: 16px;
-                                    fill: #4a4a4e;
+                                    width: 20px;
+                                    height: 20px;
+                                    fill: #3a3a3c;
                                 }
                                 .ppt-tray-btn.active svg {
                                     fill: #ff3b30;
