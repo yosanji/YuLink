@@ -149,6 +149,14 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 1. 在功能区点击 **`开启控制`** 并扫描 **`遥控二维码`**。
 2. 手机浏览器即可作为手持无线遥控面板，远程控制 PPT 的上一页、下一页翻页切换。
 
+## 💬 交流与反馈 (Contact & Community)
+
+如果您在教学课件制作、学术演讲演示中有任何改进建议，或遇到使用问题，欢迎交流探讨：
+
+* 👤 **作者**：yosanji (鱼玄机)
+* 💬 **微信**：`yosanji` (添加请备注 "YuLink" 或 "PPT插件")
+* 🐛 **问题反馈**：[GitHub Issues](https://github.com/yosanji/YuLink/issues)
+
 ---
 
 ## 🤝 致谢与上游开源项目 (Acknowledgements & Credits)

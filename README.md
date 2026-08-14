@@ -152,6 +152,14 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 1. Click **`开启控制` (Start Remote)** in the ribbon and scan the **`遥控二维码` (Remote QR)**.
 2. Turn any smartphone into an wireless presentation remote to switch slides forward and backward.
 
+## 💬 Contact & Community (交流与反馈)
+
+Feel free to connect for ideas, teaching courseware sharing, feature suggestions, or feedback:
+
+* 👤 **Author**: yosanji (鱼玄机)
+* 💬 **WeChat**: `yosanji` (Please note "YuLink" when connecting)
+* 🐛 **Bug Reports**: [GitHub Issues](https://github.com/yosanji/YuLink/issues)
+
 ---
 
 ## 🤝 Acknowledgements & Upstream Project (致谢与上游开源项目)
