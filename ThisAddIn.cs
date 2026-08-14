@@ -579,7 +579,7 @@ namespace PPTWebBrowserAddIn
                 if (_liveCastForm == null || _liveCastForm.IsDisposed)
                 {
                     _liveCastForm = new WebBrowserForm(url);
-                    _liveCastForm.IsMaximized = true;
+                    _liveCastForm.IsMaximized = false;
                     if (slideshowHwnd != IntPtr.Zero)
                     {
                         _liveCastForm.Show(new WindowWrapper(slideshowHwnd));
@@ -722,53 +722,22 @@ namespace PPTWebBrowserAddIn
             {
                 try
                 {
-                    IntPtr slideshowHwnd = IntPtr.Zero;
-                    if (Application.SlideShowWindows != null && Application.SlideShowWindows.Count > 0)
+                    var screen = Screen.FromControl(form);
+                    if (form.IsMaximized)
                     {
-                        slideshowHwnd = (IntPtr)(uint)Application.SlideShowWindows[1].HWND;
+                        form.Location = screen.Bounds.Location;
+                        form.Size = screen.Bounds.Size;
                     }
-
-                    if (form == _liveCastForm)
+                    else
                     {
-                        var screen = Screen.FromControl(form);
-                        if (form.IsMaximized)
-                        {
-                            if (slideshowHwnd != IntPtr.Zero)
-                            {
-                                RECT winRect;
-                                if (GetClientRect(slideshowHwnd, out winRect))
-                                {
-                                    int maxW = winRect.Right - winRect.Left;
-                                    int maxH = winRect.Bottom - winRect.Top;
-                                    POINT maxPt = new POINT { X = 0, Y = 0 };
-                                    ClientToScreen(slideshowHwnd, ref maxPt);
-                                    form.Location = new Point(maxPt.X, maxPt.Y);
-                                    form.Size = new Size(maxW, maxH);
-                                }
-                            }
-                            else
-                            {
-                                form.Location = screen.Bounds.Location;
-                                form.Size = screen.Bounds.Size;
-                            }
-                        }
-                        else
-                        {
-                            int w = Math.Min(1100, (int)(screen.WorkingArea.Width * 0.82));
-                            int h = Math.Min(720, (int)(screen.WorkingArea.Height * 0.82));
-                            int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;
-                            int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - h) / 2;
-                            form.Location = new Point(x, y);
-                            form.Size = new Size(w, h);
-                        }
-                        form.BringToFront();
-                        return;
+                        int w = Math.Min(1100, (int)(screen.WorkingArea.Width * 0.82));
+                        int h = Math.Min(720, (int)(screen.WorkingArea.Height * 0.82));
+                        int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;
+                        int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - h) / 2;
+                        form.Location = new Point(x, y);
+                        form.Size = new Size(w, h);
                     }
-
-                    if (_currentSlide != null)
-                    {
-                        RepositionWebViewForSlide(_currentSlide, slideshowHwnd);
-                    }
+                    form.BringToFront();
                 }
                 catch { }
             });

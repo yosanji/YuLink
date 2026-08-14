@@ -864,15 +864,20 @@ namespace PPTWebBrowserAddIn
         public void ToggleMaximize()
         {
             this.IsMaximized = !this.IsMaximized;
-            
             Screen screen = Screen.FromControl(this);
+            
             if (this.IsMaximized)
             {
+                // Directly fill 100% full screen
+                this.WindowState = FormWindowState.Normal;
                 this.Location = screen.Bounds.Location;
                 this.Size = screen.Bounds.Size;
+                this.Region = null;
             }
             else
             {
+                // Restore to comfortable centered window
+                this.WindowState = FormWindowState.Normal;
                 int w = Math.Min(1100, (int)(screen.WorkingArea.Width * 0.82));
                 int h = Math.Min(720, (int)(screen.WorkingArea.Height * 0.82));
                 int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;

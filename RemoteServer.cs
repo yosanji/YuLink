@@ -603,6 +603,10 @@ namespace PPTWebBrowserAddIn
                             if (idx >= 0 && idx < CastQueue.Count)
                             {
                                 CastQueue.RemoveAt(idx);
+                                for (int i = 0; i < CastQueue.Count; i++)
+                                {
+                                    CastQueue[i].Title = "作业 " + (i + 1);
+                                }
                                 if (CastQueue.Count == 0)
                                 {
                                     CastMode = "none";
@@ -708,8 +712,9 @@ namespace PPTWebBrowserAddIn
             if (ActiveCastIndex >= 0 && ActiveCastIndex < CastQueue.Count)
             {
                 var cur = CastQueue[ActiveCastIndex];
+                string title = "作业 " + (ActiveCastIndex + 1);
                 sb.AppendFormat("\"activeId\":{0},\"activeTitle\":\"{1}\",\"rotation\":{2},\"photoUrl\":\"/api/get_photo?id={0}&v={3}\",",
-                    cur.Id, EscapeJson(cur.Title), cur.Rotation, CastVersion);
+                    cur.Id, title, cur.Rotation, CastVersion);
             }
             else
             {
@@ -721,8 +726,9 @@ namespace PPTWebBrowserAddIn
             {
                 if (i > 0) sb.Append(",");
                 var it = CastQueue[i];
+                string title = "作业 " + (i + 1);
                 sb.AppendFormat("{{\"index\":{0},\"id\":{1},\"title\":\"{2}\",\"rotation\":{3},\"url\":\"/api/get_photo?id={1}\"}}",
-                    i, it.Id, EscapeJson(it.Title), it.Rotation);
+                    i, it.Id, title, it.Rotation);
             }
             sb.Append("]");
             sb.Append("}");
