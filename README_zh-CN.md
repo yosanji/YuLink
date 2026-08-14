@@ -164,7 +164,6 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 如果您在教学课件制作、学术演讲演示中有任何改进建议，或遇到使用问题，欢迎交流探讨：
 
 * 👤 **作者**：yosanji (鱼玄机)
-* 💬 **微信**：`yosanji` (添加请备注 "YuLink" 或 "PPT插件")
 * 🐛 **问题反馈**：[GitHub Issues](https://github.com/yosanji/YuLink/issues)
 
 ---
