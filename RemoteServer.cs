@@ -103,6 +103,14 @@ namespace PPTWebBrowserAddIn
         }
     }
 
+    public class CastPhotoItem
+    {
+        public int Id { get; set; }
+        public string Image { get; set; }
+        public string Title { get; set; }
+        public int Rotation { get; set; }
+    }
+
     public class RemoteServer
     {
         private TcpListener _listener;
@@ -121,10 +129,13 @@ namespace PPTWebBrowserAddIn
         }
 
         public static string CurrentProxyTarget { get; set; }
-        public static string CurrentCastImage = "";
+        
+        // Multi-Homework Photo Queue System
+        public static List<CastPhotoItem> CastQueue = new List<CastPhotoItem>();
+        public static int ActiveCastIndex = -1;
+        public static int CastItemCounter = 0;
         public static int CastVersion = 0;
         public static string CastMode = "none"; // none, photo, stream
-        public static int CastRotation = 0; // 0, 90, 180, 270
 
         private static bool _proxyEnabled = false;
         private static int _proxyPort = 7890;
@@ -343,7 +354,8 @@ namespace PPTWebBrowserAddIn
                         if (parts.Length < 2) return;
                         
                         string method = parts[0].ToUpper();
-                        string path = parts[1].ToLower();
+                        string rawUrl = parts[1];
+                        string path = rawUrl.ToLower();
                         int queryIdx = path.IndexOf('?');
                         if (queryIdx >= 0)
                         {
@@ -387,7 +399,9 @@ namespace PPTWebBrowserAddIn
                             requestBody = new string(bodyBuffer, 0, totalRead);
                         }
 
-                        // Serve routes
+                        // =========================================================================
+                        // API Routing
+                        // =========================================================================
                         if (path == "/prev" || path == "/next" || path == "/play")
                         {
                             if (path == "/play")
@@ -418,10 +432,10 @@ namespace PPTWebBrowserAddIn
                         else if (path == "/volume")
                         {
                             string valStr = "";
-                            int valIdx = parts[1].IndexOf("val=");
+                            int valIdx = rawUrl.IndexOf("val=");
                             if (valIdx >= 0)
                             {
-                                valStr = parts[1].Substring(valIdx + 4);
+                                valStr = rawUrl.Substring(valIdx + 4);
                             }
                             
                             if (!string.IsNullOrEmpty(valStr))
@@ -437,12 +451,12 @@ namespace PPTWebBrowserAddIn
                         }
                         else if (path == "/api/set_proxy")
                         {
-                            bool enable = parts[1].Contains("enable=1") || parts[1].Contains("enabled=true");
+                            bool enable = rawUrl.Contains("enable=1") || rawUrl.Contains("enabled=true");
                             int port = 7890;
-                            int portIdx = parts[1].IndexOf("port=");
+                            int portIdx = rawUrl.IndexOf("port=");
                             if (portIdx >= 0)
                             {
-                                string portStr = parts[1].Substring(portIdx + 5);
+                                string portStr = rawUrl.Substring(portIdx + 5);
                                 int endIdx = portStr.IndexOf('&');
                                 if (endIdx >= 0) portStr = portStr.Substring(0, endIdx);
                                 int.TryParse(portStr, out port);
@@ -475,9 +489,17 @@ namespace PPTWebBrowserAddIn
                                 string imgData = ExtractJsonString(requestBody, "image");
                                 if (!string.IsNullOrEmpty(imgData))
                                 {
-                                    CurrentCastImage = imgData;
+                                    CastItemCounter++;
+                                    var item = new CastPhotoItem
+                                    {
+                                        Id = CastItemCounter,
+                                        Image = imgData,
+                                        Title = "作业 " + (CastQueue.Count + 1),
+                                        Rotation = 0
+                                    };
+                                    CastQueue.Add(item);
+                                    ActiveCastIndex = CastQueue.Count - 1;
                                     CastMode = "photo";
-                                    CastRotation = 0;
                                     CastVersion++;
                                     
                                     if (Globals.ThisAddIn != null)
@@ -486,12 +508,66 @@ namespace PPTWebBrowserAddIn
                                     }
                                 }
                             }
-                            SendJsonResponse(stream, "{\"status\":\"success\",\"version\":" + CastVersion + "}");
+                            SendJsonResponse(stream, "{\"status\":\"success\",\"version\":" + CastVersion + ",\"index\":" + ActiveCastIndex + ",\"total\":" + CastQueue.Count + "}");
+                        }
+                        else if (path == "/api/select_cast")
+                        {
+                            int idx = 0;
+                            int idxPos = rawUrl.IndexOf("index=");
+                            if (idxPos >= 0)
+                            {
+                                string idxStr = rawUrl.Substring(idxPos + 6);
+                                int endIdx = idxStr.IndexOf('&');
+                                if (endIdx >= 0) idxStr = idxStr.Substring(0, endIdx);
+                                int.TryParse(idxStr, out idx);
+                            }
+                            if (idx >= 0 && idx < CastQueue.Count)
+                            {
+                                ActiveCastIndex = idx;
+                                CastMode = "photo";
+                                CastVersion++;
+                            }
+                            SendJsonResponse(stream, "{\"status\":\"success\",\"version\":" + CastVersion + ",\"activeIndex\":" + ActiveCastIndex + "}");
+                        }
+                        else if (path == "/api/delete_cast")
+                        {
+                            int idx = 0;
+                            int idxPos = rawUrl.IndexOf("index=");
+                            if (idxPos >= 0)
+                            {
+                                string idxStr = rawUrl.Substring(idxPos + 6);
+                                int endIdx = idxStr.IndexOf('&');
+                                if (endIdx >= 0) idxStr = idxStr.Substring(0, endIdx);
+                                int.TryParse(idxStr, out idx);
+                            }
+                            if (idx >= 0 && idx < CastQueue.Count)
+                            {
+                                CastQueue.RemoveAt(idx);
+                                if (CastQueue.Count == 0)
+                                {
+                                    CastMode = "none";
+                                    ActiveCastIndex = -1;
+                                }
+                                else if (ActiveCastIndex >= CastQueue.Count)
+                                {
+                                    ActiveCastIndex = CastQueue.Count - 1;
+                                }
+                                CastVersion++;
+                            }
+                            SendJsonResponse(stream, "{\"status\":\"success\",\"version\":" + CastVersion + ",\"total\":" + CastQueue.Count + ",\"activeIndex\":" + ActiveCastIndex + "}");
+                        }
+                        else if (path == "/api/clear_cast")
+                        {
+                            CastQueue.Clear();
+                            ActiveCastIndex = -1;
+                            CastMode = "none";
+                            CastVersion++;
+                            SendJsonResponse(stream, "{\"status\":\"success\"}");
                         }
                         else if (path == "/api/stop_cast" || path == "/stop_cast")
                         {
                             CastMode = "none";
-                            CurrentCastImage = "";
+                            CastVersion++;
                             if (Globals.ThisAddIn != null)
                             {
                                 Globals.ThisAddIn.CloseLiveCast();
@@ -500,15 +576,20 @@ namespace PPTWebBrowserAddIn
                         }
                         else if (path == "/api/rotate_cast")
                         {
-                            CastRotation = (CastRotation + 90) % 360;
-                            SendJsonResponse(stream, "{\"status\":\"success\",\"rotation\":" + CastRotation + "}");
+                            if (ActiveCastIndex >= 0 && ActiveCastIndex < CastQueue.Count)
+                            {
+                                CastQueue[ActiveCastIndex].Rotation = (CastQueue[ActiveCastIndex].Rotation + 90) % 360;
+                                CastVersion++;
+                                SendJsonResponse(stream, "{\"status\":\"success\",\"rotation\":" + CastQueue[ActiveCastIndex].Rotation + "}");
+                            }
+                            else
+                            {
+                                SendJsonResponse(stream, "{\"status\":\"none\",\"rotation\":0}");
+                            }
                         }
                         else if (path == "/api/get_cast_data")
                         {
-                            string json = string.Format(
-                                "{{\"mode\":\"{0}\",\"version\":{1},\"rotation\":{2},\"image\":\"{3}\"}}",
-                                CastMode, CastVersion, CastRotation, EscapeJson(CurrentCastImage)
-                            );
+                            string json = BuildCastDataJson();
                             SendJsonResponse(stream, json);
                         }
                         else if (path == "/view_photo" || path == "/photo" || path == "/view")
@@ -528,13 +609,13 @@ namespace PPTWebBrowserAddIn
                         }
                         else if (!string.IsNullOrEmpty(CurrentProxyTarget) && path != "/" && path != "/index.html")
                         {
-                            ProxyRequest(stream, method, CurrentProxyTarget, parts[1]);
+                            ProxyRequest(stream, method, CurrentProxyTarget, rawUrl);
                         }
                         else if (path == "/" || path == "/index.html")
                         {
                             if (!string.IsNullOrEmpty(CurrentProxyTarget))
                             {
-                                ProxyRequest(stream, method, CurrentProxyTarget, parts[1]);
+                                ProxyRequest(stream, method, CurrentProxyTarget, rawUrl);
                             }
                             else
                             {
@@ -554,6 +635,37 @@ namespace PPTWebBrowserAddIn
                 }
                 catch { }
             }
+        }
+
+        private static string BuildCastDataJson()
+        {
+            var sb = new StringBuilder();
+            sb.Append("{");
+            sb.AppendFormat("\"mode\":\"{0}\",\"version\":{1},\"total\":{2},\"activeIndex\":{3},", 
+                CastMode, CastVersion, CastQueue.Count, ActiveCastIndex);
+
+            if (ActiveCastIndex >= 0 && ActiveCastIndex < CastQueue.Count)
+            {
+                var cur = CastQueue[ActiveCastIndex];
+                sb.AppendFormat("\"current\":{{\"id\":{0},\"title\":\"{1}\",\"rotation\":{2},\"image\":\"{3}\"}},",
+                    cur.Id, EscapeJson(cur.Title), cur.Rotation, EscapeJson(cur.Image));
+            }
+            else
+            {
+                sb.Append("\"current\":null,");
+            }
+
+            sb.Append("\"items\":[");
+            for (int i = 0; i < CastQueue.Count; i++)
+            {
+                if (i > 0) sb.Append(",");
+                var it = CastQueue[i];
+                sb.AppendFormat("{{\"index\":{0},\"id\":{1},\"title\":\"{2}\",\"rotation\":{3}}}",
+                    i, it.Id, EscapeJson(it.Title), it.Rotation);
+            }
+            sb.Append("]");
+            sb.Append("}");
+            return sb.ToString();
         }
 
         private static void SendJsonResponse(Stream stream, string json)
@@ -883,8 +995,8 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Student/Audience Photo Viewer HTML (With Fullscreen & Double-Click Zoom)
-        // PURE READ-ONLY HOMEWORK PHOTO VIEWER (Zero Control Buttons)
+        // Student/Audience Photo Viewer HTML
+        // Multi-Homework Photo Queue Support (Zero Control Buttons)
         // =========================================================================
         private string GetPhotoViewerHtml()
         {
@@ -905,7 +1017,7 @@ namespace PPTWebBrowserAddIn
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             overflow-x: hidden;
             padding: 16px;
         }
@@ -924,15 +1036,31 @@ namespace PPTWebBrowserAddIn
             color: #f5f5f7;
             letter-spacing: -0.3px;
         }
-        .btn-fs {
-            background: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ffffff;
-            padding: 5px 12px;
-            border-radius: 12px;
-            font-size: 12px;
+        .queue-bar {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0 12px 0;
+        }
+        .queue-pill {
+            background: #1c1c1e;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #8e8e93;
+            padding: 6px 14px;
+            border-radius: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .queue-pill.active {
+            background: #0071e3;
+            color: #ffffff;
+            border-color: #0071e3;
+            box-shadow: 0 2px 8px rgba(0, 113, 227, 0.4);
         }
         .img-card {
             width: 100%;
@@ -954,7 +1082,7 @@ namespace PPTWebBrowserAddIn
             object-fit: contain;
             display: none;
             border-radius: 18px;
-            cursor: pointer;
+            transition: transform 0.2s ease;
         }
         .empty-box {
             display: flex;
@@ -976,11 +1104,13 @@ namespace PPTWebBrowserAddIn
 </head>
 <body>
     <div class=""header-bar"">
-        <div class=""title"">作业试卷讲评</div>
-        <button class=""btn-fs"" onclick=""toggleFullScreen()"">全屏浏览</button>
+        <div id=""lblHeaderTitle"" class=""title"">作业试卷讲评</div>
     </div>
 
-    <div class=""img-card"" ondblclick=""toggleFullScreen()"">
+    <!-- Homework Queue Selector -->
+    <div id=""queueBar"" class=""queue-bar"" style=""display: none;""></div>
+
+    <div class=""img-card"">
         <div id=""emptyHint"" class=""empty-box"">
             <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
             <div>教师尚未上传实物照片</div>
@@ -988,45 +1118,63 @@ namespace PPTWebBrowserAddIn
         <img id=""photoImg"" alt=""Homework Photo"" />
     </div>
 
-    <div class=""hint-bar"">双击或双指缩放 · 长按可保存原图</div>
+    <div class=""hint-bar"">双指捏合缩放 · 长按可保存原图</div>
 
     <script>
-        function toggleFullScreen() {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                } else if (document.documentElement.webkitRequestFullscreen) {
-                    document.documentElement.webkitRequestFullscreen();
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                }
+        let curVer = -1;
+        let selectedIndex = 0;
+
+        function renderQueue(items, activeIdx) {
+            const bar = document.getElementById('queueBar');
+            if (!items || items.length <= 1) {
+                bar.style.display = 'none';
+                return;
             }
+            bar.style.display = 'flex';
+            bar.innerHTML = '';
+            items.forEach((it, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'queue-pill' + (idx === activeIdx ? ' active' : '');
+                btn.innerText = it.title || ('作业 ' + (idx + 1));
+                btn.onclick = () => selectHomework(idx);
+                bar.appendChild(btn);
+            });
         }
 
-        let curVer = -1;
+        async function selectHomework(idx) {
+            try {
+                await fetch('/api/select_cast?index=' + idx);
+            } catch (e) {}
+        }
+
         async function fetchPhoto() {
             try {
                 const res = await fetch('/api/get_cast_data');
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.image && data.version !== curVer) {
+                    if (data.version !== curVer) {
                         curVer = data.version;
                         const img = document.getElementById('photoImg');
                         const empty = document.getElementById('emptyHint');
-                        img.src = data.image;
-                        img.style.display = 'block';
-                        empty.style.display = 'none';
-                    } else if (data.mode === 'none') {
-                        document.getElementById('photoImg').style.display = 'none';
-                        document.getElementById('emptyHint').style.display = 'flex';
+                        const title = document.getElementById('lblHeaderTitle');
+
+                        if (data.mode === 'photo' && data.current && data.current.image) {
+                            img.src = data.current.image;
+                            img.style.transform = 'rotate(' + (data.current.rotation || 0) + 'deg)';
+                            img.style.display = 'block';
+                            empty.style.display = 'none';
+                            title.innerText = (data.current.title || '作业讲评') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
+                            renderQueue(data.items, data.activeIndex);
+                        } else {
+                            img.style.display = 'none';
+                            empty.style.display = 'flex';
+                            title.innerText = '作业试卷讲评';
+                            renderQueue([], 0);
+                        }
                     }
                 }
             } catch (e) {}
-            setTimeout(fetchPhoto, 500);
+            setTimeout(fetchPhoto, 400);
         }
         fetchPhoto();
     </script>
@@ -1036,7 +1184,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
-        // With Native Fullscreen API + [全屏] button & Double-Click Fullscreen
+        // With Multi-Homework Badge + Vector Rotate Button
         // =========================================================================
         private string GetCastViewHtml()
         {
@@ -1098,6 +1246,24 @@ namespace PPTWebBrowserAddIn
             pointer-events: none;
             -webkit-user-drag: none;
         }
+        .hud-badge {
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+            z-index: 100;
+            letter-spacing: -0.2px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
         .hud-tools {
             position: absolute;
             top: 18px;
@@ -1148,8 +1314,11 @@ namespace PPTWebBrowserAddIn
 </head>
 <body>
     <div id=""viewport"">
+        <!-- Order / Queue Badge -->
+        <div id=""orderBadge"" class=""hud-badge"">作业 1 (1/1)</div>
+
         <div class=""hud-tools"">
-            <!-- Pure Apple Vector Rotate Button (Zero text noise) -->
+            <!-- Pure Apple Vector Rotate Button -->
             <button class=""hud-circle-btn"" onclick=""rotateImage()"" title=""旋转 90°"">
                 <svg viewBox=""0 0 24 24""><path d=""M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.6-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37.5 6 3.41 6 6.91 0 1.25-.34 2.43-.93 3.44l1.46 1.46C20.45 16.38 21 14.77 21 13c0-4.42-3.21-8.08-7.39-8.73z""/></svg>
             </button>
@@ -1173,12 +1342,14 @@ namespace PPTWebBrowserAddIn
         let currentScale = 1.0;
         let posX = 0;
         let posY = 0;
+        let currentItemId = -1;
 
         const viewport = document.getElementById('viewport');
         const panLayer = document.getElementById('panLayer');
         const rotateScaleLayer = document.getElementById('rotateScaleLayer');
         const img = document.getElementById('castImage');
         const emptyState = document.getElementById('emptyState');
+        const orderBadge = document.getElementById('orderBadge');
 
         function updatePan() {
             panLayer.style.transform = 'translate3d(' + posX + 'px, ' + posY + 'px, 0)';
@@ -1282,19 +1453,29 @@ namespace PPTWebBrowserAddIn
                 const res = await fetch('/api/get_cast_data');
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.mode === 'none') {
+                    if (data.mode === 'none' || !data.current) {
                         emptyState.style.display = 'flex';
                         img.style.display = 'none';
-                    } else if (data.image && data.version !== currentVersion) {
+                        orderBadge.style.display = 'none';
+                    } else if (data.version !== currentVersion) {
                         currentVersion = data.version;
-                        currentRotation = data.rotation || 0;
-                        resetView();
-                        img.src = data.image;
+                        const cur = data.current;
+                        if (cur.id !== currentItemId) {
+                            currentItemId = cur.id;
+                            resetView();
+                        }
+                        currentRotation = cur.rotation || 0;
+                        img.src = cur.image;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
-                    } else if (data.rotation !== undefined && data.rotation !== currentRotation) {
-                        currentRotation = data.rotation;
                         updateTransform();
+
+                        if (data.total > 1) {
+                            orderBadge.innerText = (cur.title || '作业') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
+                            orderBadge.style.display = 'block';
+                        } else {
+                            orderBadge.style.display = 'none';
+                        }
                     }
                 }
             } catch (e) {}
@@ -1307,6 +1488,10 @@ namespace PPTWebBrowserAddIn
 </html>";
         }
 
+        // =========================================================================
+        // Pure Minimalist Modern Apple Pro Web Controller HTML
+        // With Multi-Homework Queue Management & Ordering
+        // =========================================================================
         private string GetControlPageHtml()
         {
             return @"<!DOCTYPE html>
@@ -1600,7 +1785,7 @@ namespace PPTWebBrowserAddIn
             fill: var(--text-secondary);
         }
 
-        /* 📶 Minimalist Network Sharing Card (Zero Noise) */
+        /* 📶 Minimalist Network Sharing Card */
         .proxy-row {
             display: flex;
             align-items: center;
@@ -1662,7 +1847,46 @@ namespace PPTWebBrowserAddIn
             transform: translateX(20px);
         }
 
-        /* 📷 Tab 2: Visualizer Camera */
+        /* 📷 Tab 2: Visualizer Camera & Homework Queue */
+        .queue-scroll-container {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 2px;
+            width: 100%;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .queue-scroll-container::-webkit-scrollbar { display: none; }
+
+        .queue-item-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f2f2f7;
+            padding: 7px 13px;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+        }
+
+        .queue-item-pill.active {
+            background: var(--apple-blue);
+            color: #ffffff;
+            box-shadow: 0 3px 10px rgba(0, 113, 227, 0.3);
+        }
+
+        .queue-item-pill .del-dot {
+            font-size: 12px;
+            opacity: 0.7;
+            padding: 0 2px;
+        }
+
         .snap-hero-wrapper {
             position: relative;
             width: 100%;
@@ -1670,18 +1894,18 @@ namespace PPTWebBrowserAddIn
 
         .snap-hero-btn {
             width: 100%;
-            height: 84px;
+            height: 72px;
             background: var(--apple-green);
-            border-radius: 22px;
+            border-radius: 20px;
             border: none;
             color: #ffffff;
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 600;
             letter-spacing: -0.3px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 9px;
+            gap: 8px;
             cursor: pointer;
             transition: all 0.12s ease;
             box-shadow: 0 6px 18px rgba(52, 199, 89, 0.25);
@@ -1693,8 +1917,8 @@ namespace PPTWebBrowserAddIn
         }
 
         .snap-hero-btn svg {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             fill: #ffffff;
         }
 
@@ -1725,7 +1949,7 @@ namespace PPTWebBrowserAddIn
         #previewThumb {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             display: none;
         }
 
@@ -1821,14 +2045,14 @@ namespace PPTWebBrowserAddIn
             </div>
         </div>
 
-        <!-- Windows Native Master Volume Card (iOS Control Center Capsule Slider) -->
+        <!-- Windows Native Master Volume Card -->
         <div class=""apple-card"">
             <div class=""volume-header-row"">
                 <span class=""card-header-title"">系统主音量</span>
                 <span id=""lblVolume"" class=""volume-badge"">50%</span>
             </div>
 
-            <!-- iOS Control Center Fluid Drag Capsule Slider (Real-time Feedback) -->
+            <!-- iOS Control Center Fluid Drag Capsule Slider -->
             <div id=""volCapsule"" class=""volume-capsule-wrapper"">
                 <div id=""volFill"" class=""volume-capsule-fill"" style=""width: 50%;""></div>
                 <div class=""volume-capsule-content"">
@@ -1838,7 +2062,7 @@ namespace PPTWebBrowserAddIn
             </div>
         </div>
 
-        <!-- 📶 Minimalist Network Sharing Card (Zero Explanation Text) -->
+        <!-- 📶 Minimalist Network Sharing Card -->
         <div class=""apple-card"">
             <div class=""proxy-row"">
                 <div class=""proxy-title"" onclick=""configProxyPort()"">网络共享</div>
@@ -1851,17 +2075,20 @@ namespace PPTWebBrowserAddIn
 
     </div>
 
-    <!-- 📷 Tab 2: Visualizer Camera & Homework Grading Pane -->
+    <!-- 📷 Tab 2: Visualizer Camera & Homework Queue Pane -->
     <div id=""pane-camera"" class=""tab-pane"">
         
         <div class=""apple-card"">
-            <div class=""card-header-title"">实物展台 · 拍照讲评作业</div>
+            <div class=""card-header-title"" id=""lblQueueStatus"">作业拍摄队列</div>
+
+            <!-- Homework Queue Pills -->
+            <div id=""mobileQueueList"" class=""queue-scroll-container"" style=""display: none;""></div>
 
             <!-- Native Optical Camera Trigger (Apple Green Hero) -->
             <div class=""snap-hero-wrapper"">
                 <button class=""snap-hero-btn"">
                     <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
-                    <span>拍照投屏讲评</span>
+                    <span id=""btnSnapText"">拍摄新作业</span>
                 </button>
                 <input id=""nativeCameraInput"" type=""file"" accept=""image/*"" capture=""environment"" onchange=""handleNativePhoto(this)"" />
             </div>
@@ -1880,9 +2107,9 @@ namespace PPTWebBrowserAddIn
                     <svg viewBox=""0 0 24 24""><path d=""M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.6-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37.5 6 3.41 6 6.91 0 1.25-.34 2.43-.93 3.44l1.46 1.46C20.45 16.38 21 14.77 21 13c0-4.42-3.21-8.08-7.39-8.73z""/></svg>
                     <span>旋转 90°</span>
                 </button>
-                <button class=""flat-btn"" onclick=""triggerCameraAgain()"">
-                    <svg viewBox=""0 0 24 24""><path d=""M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z""/></svg>
-                    <span>重拍作业</span>
+                <button class=""flat-btn"" onclick=""deleteCurrentPhoto()"">
+                    <svg viewBox=""0 0 24 24""><path d=""M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z""/></svg>
+                    <span>删除本张</span>
                 </button>
             </div>
 
@@ -1894,12 +2121,10 @@ namespace PPTWebBrowserAddIn
     </div>
 
     <script>
-        // Haptic feedback
         function vibrate() {
             if (navigator.vibrate) navigator.vibrate(20);
         }
 
-        // Tab Switcher
         function switchTab(name) {
             vibrate();
             const btns = document.querySelectorAll('.tab-btn');
@@ -1912,10 +2137,10 @@ namespace PPTWebBrowserAddIn
             } else if (name === 'camera') {
                 btns[1].classList.add('active');
                 document.getElementById('pane-camera').classList.add('active');
+                pollQueueData();
             }
         }
 
-        // Remote command sender
         async function sendCmd(path) {
             vibrate();
             const led = document.getElementById('ledDot');
@@ -1934,9 +2159,7 @@ namespace PPTWebBrowserAddIn
             }, 180);
         }
 
-        // =========================================================================
         // High-Precision Real-time Audio Volume Dragging Engine
-        // =========================================================================
         const capsule = document.getElementById('volCapsule');
         const fill = document.getElementById('volFill');
         const badge = document.getElementById('lblVolume');
@@ -2017,9 +2240,7 @@ namespace PPTWebBrowserAddIn
         }
         fetchSystemVolume();
 
-        // =========================================================================
-        // Pure 网络共享 Toggle & Port Config
-        // =========================================================================
+        // Pure Network Sharing Toggle & Port Config
         let currentProxyPort = 7890;
 
         async function initProxyStatus() {
@@ -2058,10 +2279,77 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // 100% Lossless Raw Image Upload
+        // Homework Queue Management Engine (Mobile Control)
         // =========================================================================
-        function triggerCameraAgain() {
-            document.getElementById('nativeCameraInput').click();
+        let queueVersion = -1;
+        let currentActiveIdx = -1;
+
+        async function pollQueueData() {
+            try {
+                const res = await fetch('/api/get_cast_data');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.version !== queueVersion) {
+                        queueVersion = data.version;
+                        currentActiveIdx = data.activeIndex;
+                        renderMobileQueue(data);
+                    }
+                }
+            } catch (e) {}
+            setTimeout(pollQueueData, 500);
+        }
+
+        function renderMobileQueue(data) {
+            const qList = document.getElementById('mobileQueueList');
+            const qStatus = document.getElementById('lblQueueStatus');
+            const thumb = document.getElementById('previewThumb');
+            const placeholder = document.getElementById('previewPlaceholder');
+            const btnSnap = document.getElementById('btnSnapText');
+
+            if (!data.items || data.items.length === 0) {
+                qList.style.display = 'none';
+                qStatus.innerText = '实物展台 · 拍照讲评作业';
+                thumb.style.display = 'none';
+                placeholder.style.display = 'flex';
+                btnSnap.innerText = '拍照投屏讲评';
+                return;
+            }
+
+            qList.style.display = 'flex';
+            qList.innerHTML = '';
+            qStatus.innerText = '已拍摄 ' + data.total + ' 份作业 (当前: ' + (data.activeIndex + 1) + ')';
+            btnSnap.innerText = '+ 拍摄下一份作业';
+
+            data.items.forEach((it, idx) => {
+                const pill = document.createElement('div');
+                pill.className = 'queue-item-pill' + (idx === data.activeIndex ? ' active' : '');
+                pill.innerHTML = '<span>' + (it.title || ('作业 ' + (idx + 1))) + '</span>';
+                pill.onclick = () => switchActiveHomework(idx);
+                qList.appendChild(pill);
+            });
+
+            if (data.current && data.current.image) {
+                thumb.src = data.current.image;
+                thumb.style.transform = 'rotate(' + (data.current.rotation || 0) + 'deg)';
+                thumb.style.display = 'block';
+                placeholder.style.display = 'none';
+            }
+        }
+
+        async function switchActiveHomework(idx) {
+            vibrate();
+            try {
+                await fetch('/api/select_cast?index=' + idx);
+            } catch (e) {}
+        }
+
+        async function deleteCurrentPhoto() {
+            if (currentActiveIdx < 0) return;
+            if (!confirm('确定删除当前这份作业照片吗？')) return;
+            vibrate();
+            try {
+                await fetch('/api/delete_cast?index=' + currentActiveIdx);
+            } catch (e) {}
         }
 
         function handleNativePhoto(input) {
@@ -2070,13 +2358,6 @@ namespace PPTWebBrowserAddIn
                 const reader = new FileReader();
                 reader.onload = async function(e) {
                     const rawBase64 = e.target.result;
-                    
-                    const thumb = document.getElementById('previewThumb');
-                    const placeholder = document.getElementById('previewPlaceholder');
-                    thumb.src = rawBase64;
-                    thumb.style.display = 'block';
-                    placeholder.style.display = 'none';
-
                     vibrate();
                     try {
                         const res = await fetch('/api/cast_photo', {
@@ -2085,7 +2366,7 @@ namespace PPTWebBrowserAddIn
                             body: JSON.stringify({ image: rawBase64 })
                         });
                         if (res.ok) {
-                            alert('照片已同步大屏！大屏右上角可点击【扫码看图】供学生手机浏览。');
+                            input.value = ''; // Reset input to allow shooting again
                         }
                     } catch (err) {
                         alert('上传失败: ' + err.message);
@@ -2106,9 +2387,10 @@ namespace PPTWebBrowserAddIn
             vibrate();
             try {
                 await fetch('/api/stop_cast', { method: 'POST' });
-                alert('已退出展台，PPT 恢复放映。');
             } catch (e) {}
         }
+
+        pollQueueData();
     </script>
 </body>
 </html>";
