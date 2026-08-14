@@ -726,8 +726,6 @@ namespace PPTWebBrowserAddIn
             string currentUrl = (_webView.Source != null) ? _webView.Source.ToString() : null;
             if (string.IsNullOrEmpty(currentUrl)) return;
 
-            // Replace localhost / 127.0.0.1 with the machine's LAN IP so mobile
-            // devices on the same network can access the page directly.
             string shareUrl = ReplaceLANUrl(currentUrl);
 
             try
@@ -736,30 +734,40 @@ namespace PPTWebBrowserAddIn
                 qrForm.Size = new Size(280, 335);
                 qrForm.Text = "扫码共享网页";
                 qrForm.FormBorderStyle = FormBorderStyle.None;
-                qrForm.StartPosition = FormStartPosition.CenterParent;
+                qrForm.StartPosition = FormStartPosition.CenterScreen;
                 qrForm.TopMost = true;
+                qrForm.ShowInTaskbar = false;
                 qrForm.BackColor = Color.FromArgb(246, 246, 246);
+                qrForm.KeyPreview = true;
 
-                // Add Apple-style Title Bar
+                // Auto close on Deactivate or ESC - NEVER freezes PPT/WebView2!
+                qrForm.Deactivate += (s, e) => {
+                    try { qrForm.Close(); qrForm.Dispose(); } catch {}
+                };
+                qrForm.KeyDown += (s, e) => {
+                    if (e.KeyCode == Keys.Escape) {
+                        try { qrForm.Close(); qrForm.Dispose(); } catch {}
+                    }
+                };
+
+                // Title bar
                 Panel titlePanel = new Panel();
                 titlePanel.Height = 36;
                 titlePanel.Dock = DockStyle.Top;
                 titlePanel.BackColor = Color.FromArgb(246, 246, 246);
-                titlePanel.Paint += (s, e) => {
-                    using (var pen = new Pen(Color.FromArgb(210, 210, 215), 1)) {
-                        e.Graphics.DrawLine(pen, 0, titlePanel.Height - 1, titlePanel.Width, titlePanel.Height - 1);
-                    }
-                };
 
-                // Close Button (Red Circle)
+                // Close button (Red circle)
                 Button btnClose = new Button();
-                btnClose.Size = new Size(11, 11);
-                btnClose.Location = new Point(12, 12);
+                btnClose.Size = new Size(13, 13);
+                btnClose.Location = new Point(12, 11);
                 btnClose.FlatStyle = FlatStyle.Flat;
                 btnClose.FlatAppearance.BorderSize = 0;
                 btnClose.BackColor = Color.FromArgb(255, 95, 86);
+                btnClose.Cursor = Cursors.Hand;
                 MakeCircular(btnClose);
-                btnClose.Click += (s, e) => { qrForm.Close(); };
+                btnClose.Click += (s, e) => { 
+                    try { qrForm.Close(); qrForm.Dispose(); } catch {}
+                };
                 titlePanel.Controls.Add(btnClose);
 
                 // Title label
@@ -771,25 +779,23 @@ namespace PPTWebBrowserAddIn
                 lblTitle.Location = new Point((qrForm.Width - lblTitle.Width) / 2, 8);
                 lblTitle.TextAlign = ContentAlignment.MiddleCenter;
                 titlePanel.Controls.Add(lblTitle);
-
                 qrForm.Controls.Add(titlePanel);
 
-                // PictureBox to display QR code
+                // QR Image PictureBox
                 PictureBox pb = new PictureBox();
-                pb.Size = new Size(250, 250);
-                pb.Location = new Point(15, 50);
+                pb.Size = new Size(240, 240);
+                pb.Location = new Point(20, 48);
                 pb.SizeMode = PictureBoxSizeMode.StretchImage;
                 pb.BackColor = Color.White;
                 qrForm.Controls.Add(pb);
 
                 // Hint label
                 Label lblHint = new Label();
-                // If URL was rewritten, show the LAN URL so user knows what was encoded
-                lblHint.Text = shareUrl.Equals(currentUrl) ? "使用手机扫码同步浏览此网页" : "已将 localhost 替换为局域网 IP";
+                lblHint.Text = "点击任意外部或按 ESC 即可关闭";
                 lblHint.Font = new Font("Segoe UI", 8.5f);
-                lblHint.ForeColor = Color.FromArgb(120, 120, 125);
-                lblHint.Size = new Size(250, 20);
-                lblHint.Location = new Point(15, 305);
+                lblHint.ForeColor = Color.FromArgb(140, 140, 145);
+                lblHint.Size = new Size(260, 20);
+                lblHint.Location = new Point(10, 300);
                 lblHint.TextAlign = ContentAlignment.MiddleCenter;
                 qrForm.Controls.Add(lblHint);
 
@@ -802,14 +808,13 @@ namespace PPTWebBrowserAddIn
                     pb.Image = new Bitmap(qrCodeImage);
                 }
 
-                // Apply rounded corners to QR form
-                qrForm.Load += (s, e) => {
-                    IntPtr hRgn = CreateRoundRectRgn(0, 0, qrForm.Width, qrForm.Height, 14, 14);
-                    qrForm.Region = Region.FromHrgn(hRgn);
-                    DeleteObject(hRgn);
-                };
+                // Apply rounded corners
+                IntPtr hRgn = CreateRoundRectRgn(0, 0, qrForm.Width, qrForm.Height, 16, 16);
+                qrForm.Region = Region.FromHrgn(hRgn);
+                DeleteObject(hRgn);
 
-                qrForm.ShowDialog(this);
+                // Show NON-MODAL so it never deadlocks the PPT message loop
+                qrForm.Show(this);
             }
             catch (Exception ex)
             {
@@ -817,17 +822,74 @@ namespace PPTWebBrowserAddIn
             }
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+
         public bool IsMaximized { get; set; }
 
         public void ToggleMaximize()
         {
             this.IsMaximized = !this.IsMaximized;
+            
+            Screen screen = Screen.FromControl(this);
+            if (this.IsMaximized)
+            {
+                this.Location = screen.Bounds.Location;
+                this.Size = screen.Bounds.Size;
+            }
+            else
+            {
+                int w = Math.Min(1100, (int)(screen.WorkingArea.Width * 0.82));
+                int h = Math.Min(720, (int)(screen.WorkingArea.Height * 0.82));
+                int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;
+                int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - h) / 2;
+                this.Location = new Point(x, y);
+                this.Size = new Size(w, h);
+            }
+
             if (Globals.ThisAddIn != null)
             {
                 Globals.ThisAddIn.RepositionFormDirect(this);
             }
+
             UpdateZoomFactor();
             ApplyRoundedCorners();
+            LayoutControls();
+            this.BringToFront();
+        }
+
+        public void MinimizeWindow()
+        {
+            Screen screen = Screen.FromControl(this);
+            if (this.Size.Width <= 450)
+            {
+                // Already minimized -> restore to windowed mode
+                this.IsMaximized = false;
+                int w = Math.Min(1100, (int)(screen.WorkingArea.Width * 0.82));
+                int h = Math.Min(720, (int)(screen.WorkingArea.Height * 0.82));
+                int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;
+                int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - h) / 2;
+                this.Location = new Point(x, y);
+                this.Size = new Size(w, h);
+            }
+            else
+            {
+                // Minimize to compact floating window at bottom-right (420x260)
+                this.IsMaximized = false;
+                int w = 420;
+                int h = 260;
+                int x = screen.WorkingArea.Right - w - 24;
+                int y = screen.WorkingArea.Bottom - h - 24;
+                this.Location = new Point(x, y);
+                this.Size = new Size(w, h);
+            }
+
+            UpdateZoomFactor();
+            ApplyRoundedCorners();
+            LayoutControls();
+            this.BringToFront();
         }
 
         public WebBrowserForm(string url)
@@ -895,6 +957,12 @@ namespace PPTWebBrowserAddIn
                 _navPanel.Dock = DockStyle.Top;
                 _navPanel.BackColor = Color.FromArgb(246, 246, 246);
                 _navPanel.Padding = new Padding(5);
+                _navPanel.MouseDown += (s, e) => {
+                    if (e.Button == MouseButtons.Left && !this.IsMaximized) {
+                        ReleaseCapture();
+                        SendMessage(this.Handle, 0xA1, 0x2, 0); // HTCAPTION drag
+                    }
+                };
                 _navPanel.Paint += (s, e) => {
                     using (var pen = new Pen(Color.FromArgb(210, 210, 215), 1))
                     {
@@ -991,7 +1059,7 @@ namespace PPTWebBrowserAddIn
                 };
 
                 toolTip.SetToolTip(btnLiquidGlass, "关闭 (Close)");
-                toolTip.SetToolTip(_btnRefresh, "刷新 (Reload)");
+                toolTip.SetToolTip(_btnRefresh, "最小化 (Minimize)");
                 toolTip.SetToolTip(_btnFullScreen, "全屏 (Fullscreen)");
                 toolTip.SetToolTip(_btnInk, "标注 (Ink Draw)");
                 toolTip.SetToolTip(_btnShare, "扫码共享 (QR Share)");

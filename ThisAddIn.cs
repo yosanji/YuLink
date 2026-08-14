@@ -730,6 +730,7 @@ namespace PPTWebBrowserAddIn
 
                     if (form == _liveCastForm)
                     {
+                        var screen = Screen.FromControl(form);
                         if (form.IsMaximized)
                         {
                             if (slideshowHwnd != IntPtr.Zero)
@@ -747,16 +748,14 @@ namespace PPTWebBrowserAddIn
                             }
                             else
                             {
-                                var screen = Screen.FromControl(form);
-                                form.Location = screen.WorkingArea.Location;
-                                form.Size = screen.WorkingArea.Size;
+                                form.Location = screen.Bounds.Location;
+                                form.Size = screen.Bounds.Size;
                             }
                         }
                         else
                         {
-                            var screen = Screen.FromControl(form);
-                            int w = (int)(screen.WorkingArea.Width * 0.85);
-                            int h = (int)(screen.WorkingArea.Height * 0.85);
+                            int w = Math.Min(1100, (int)(screen.WorkingArea.Width * 0.82));
+                            int h = Math.Min(720, (int)(screen.WorkingArea.Height * 0.82));
                             int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;
                             int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - h) / 2;
                             form.Location = new Point(x, y);
