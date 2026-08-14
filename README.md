@@ -98,15 +98,17 @@ YuLink is built upon modern Chromium WebView2 and the .NET Framework. Most Windo
 
 ---
 
-### 2. Automation Toolbox & One-Click Deployment (Tools & Installation)
+### 2. Streamlined Automation & One-Click Deployment (Tools & Installation)
 
-YuLink comes with an out-of-the-box automated batch toolbox:
+YuLink adopts an ultra-clean "two-script" design with zero learning curve:
 
 | Automation Tool | Description | Use Case |
 | :--- | :--- | :--- |
-| **`一键安装.bat`** 🚀 | **One-Click Auto Installer**: Auto-diagnoses dependencies, auto-repairs missing runtimes, compiles offline, injects ClickOnce trust, and registers with Office & WPS. | **Initial Setup / Updates** |
-| **`环境检查与修复.bat`** 🔍 | **Environment Check & Auto-Repair**: Scans .NET 4.8 and WebView2; automatically downloads and installs missing runtimes from Microsoft. | **Troubleshooting / Clean OS** |
-| **`一键卸载.bat`** 🗑️ | **Clean Uninstaller**: Completely removes all registry add-in keys, COM registrations, and ClickOnce trust entries. | **Full Uninstallation** |
+| **`一键安装.bat`** 🚀 | **One-Click Auto Installer**: Multi-mirror auto-diagnosis, silent dependency auto-repair, offline compilation, ClickOnce trust injection, and dual-host registration. | **Initial Setup / Updates** |
+| **`一键卸载.bat`** 🗑️ | **Clean Uninstaller**: Completely removes all registry add-in keys, COM registrations, and ClickOnce trust entries in 1 second. | **Full Uninstallation** |
+
+> [!TIP]
+> **Multi-Channel Mirror Acceleration**: For restricted networks or firewalled enterprise environments, `一键安装.bat` incorporates an automated multi-mirror fallback engine (Microsoft High-Speed CDN + Direct Delivery Network), seamlessly failing over to alternate mirrors if a connection times out.
 
 #### 🚀 Quick Start:
 1. Download the release package or clone this repository.

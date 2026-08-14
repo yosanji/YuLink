@@ -16,8 +16,40 @@ if (!(Test-Path $extractedDir)) {
 }
 
 # =========================================================================
-# Pre-Flight Dependency Diagnostic & Auto-Fix
+# Pre-Flight Dependency Diagnostic & Multi-Channel Auto-Fix
 # =========================================================================
+function Download-WithMirrors {
+    param (
+        [string[]]$Urls,
+        [string]$OutFile,
+        [string]$Label
+    )
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    foreach ($u in $Urls) {
+        try {
+            Write-Host "  --> Connecting to high-speed mirror ($Label): $u" -ForegroundColor Gray
+            $req = [System.Net.HttpWebRequest]::Create($u)
+            $req.Timeout = 12000
+            $req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            $resp = $req.GetResponse()
+            $stream = $resp.GetResponseStream()
+            $fileStream = [System.IO.File]::Create($OutFile)
+            $stream.CopyTo($fileStream)
+            $fileStream.Close()
+            $stream.Close()
+            $resp.Close()
+
+            if ((Test-Path $OutFile) -and (Get-Item $OutFile).Length -gt 1000) {
+                Write-Host "  --> [OK] Downloaded $Label successfully from mirror." -ForegroundColor Green
+                return $true
+            }
+        } catch {
+            Write-Host "  --> [WARN] Mirror timed out or blocked: $($_.Exception.Message). Switching to next channel..." -ForegroundColor Yellow
+        }
+    }
+    return $false
+}
+
 Write-Host "Checking system dependencies..." -ForegroundColor Cyan
 
 # 1. Check .NET Framework 4.8+
@@ -32,16 +64,19 @@ try {
 if ($net48Installed) {
     Write-Host "  [OK] .NET Framework 4.8+ detected." -ForegroundColor Green
 } else {
-    Write-Host "  [AUTO-FIX] .NET Framework 4.8+ missing. Downloading official installer..." -ForegroundColor Yellow
+    Write-Host "  [AUTO-FIX] .NET Framework 4.8+ missing. Attempting multi-channel auto-download..." -ForegroundColor Yellow
     $netInstaller = Join-Path $env:TEMP "ndp48-web.exe"
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?LinkId=2085155" -OutFile $netInstaller -UseBasicParsing
+    $netMirrors = @(
+        "https://go.microsoft.com/fwlink/?LinkId=2085155",
+        "https://download.visualstudio.microsoft.com/download/pr/014120d7-d689-4305-befd-3cb711108212/0fd66638cde16859462a6243a4629a50/ndp48-x86-x64-allos-enu.exe",
+        "https://go.microsoft.com/fwlink/?linkid=2088631"
+    )
+    $downloadOk = Download-WithMirrors -Urls $netMirrors -OutFile $netInstaller -Label ".NET Framework 4.8"
+    if ($downloadOk) {
         Write-Host "  [AUTO-FIX] Launching .NET Framework 4.8 setup..." -ForegroundColor Yellow
         Start-Process -FilePath $netInstaller -ArgumentList "/promptrestart" -Wait
-    } catch {
-        Write-Host "  [WARN] Failed to auto-download .NET: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "         Please install manually from: https://go.microsoft.com/fwlink/?linkid=2088631" -ForegroundColor Yellow
+    } else {
+        Write-Host "  [WARN] Auto-download failed. Please install manually: https://go.microsoft.com/fwlink/?linkid=2088631" -ForegroundColor Red
     }
 }
 
@@ -86,19 +121,22 @@ if (!$wv2Installed) {
 if ($wv2Installed) {
     Write-Host "  [OK] Microsoft Edge WebView2 Runtime detected ($wv2Version)." -ForegroundColor Green
 } else {
-    Write-Host "  [AUTO-FIX] WebView2 Runtime missing. Downloading official installer..." -ForegroundColor Yellow
+    Write-Host "  [AUTO-FIX] WebView2 Runtime missing. Attempting multi-channel auto-download..." -ForegroundColor Yellow
     $wv2Installer = Join-Path $env:TEMP "MicrosoftEdgeWebview2Setup.exe"
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $wv2Installer -UseBasicParsing
+    $wv2Mirrors = @(
+        "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+        "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/038e5be3-91a2-4c14-b2eb-2fac728c8c2c/MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+        "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/038e5be3-91a2-4c14-b2eb-2fac728c8c2c/MicrosoftEdgeWebView2RuntimeInstallerX86.exe"
+    )
+    $downloadOk = Download-WithMirrors -Urls $wv2Mirrors -OutFile $wv2Installer -Label "WebView2 Runtime"
+    if ($downloadOk) {
         Write-Host "  [AUTO-FIX] Installing Microsoft Edge WebView2 Runtime silently..." -ForegroundColor Yellow
         $proc = Start-Process -FilePath $wv2Installer -ArgumentList "/silent /install" -Wait -PassThru
         if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -2147219416) {
             Write-Host "  [OK] WebView2 Runtime installed successfully!" -ForegroundColor Green
         }
-    } catch {
-        Write-Host "  [WARN] Failed to auto-install WebView2: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "         Please install manually from: https://go.microsoft.com/fwlink/p/?LinkId=2124703" -ForegroundColor Yellow
+    } else {
+        Write-Host "  [WARN] Auto-download failed. Please install manually: https://go.microsoft.com/fwlink/p/?LinkId=2124703" -ForegroundColor Red
     }
 }
 # =========================================================================
