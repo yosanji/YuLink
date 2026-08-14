@@ -12,7 +12,7 @@
     <a href="README.md">English Documentation</a>
   </p>
   <p align="center">
-    <a href="https://github.com/yosanji/YuLink/releases"><img src="https://img.shields.io/badge/Release-v1.0.0-blue.svg?style=flat-square&logo=github" alt="Version"></a>
+    <a href="https://github.com/yosanji/YuLink/releases"><img src="https://img.shields.io/badge/Release-v2.0.0-blue.svg?style=flat-square&logo=github" alt="Version"></a>
     <img src="https://img.shields.io/badge/.NET_Framework-4.8.1-512BD4.svg?style=flat-square&logo=dotnet" alt=".NET">
     <img src="https://img.shields.io/badge/Chromium-WebView2-0078D7.svg?style=flat-square&logo=microsoftedge" alt="WebView2">
     <img src="https://img.shields.io/badge/Host-PowerPoint_%7C_WPS-D83B01.svg?style=flat-square&logo=microsoftpowerpoint" alt="Host">
