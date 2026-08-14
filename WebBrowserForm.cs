@@ -1036,8 +1036,6 @@ namespace PPTWebBrowserAddIn
                 btnLiquidGlass.Cursor = Cursors.Hand;
                 btnLiquidGlass.Click += (s, e) => { this.Close(); };
                 btnLiquidGlass.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.Close(); };
-                btnLiquidGlass.MouseEnter += (s, e) => { isTrafficHovered = true; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
-                btnLiquidGlass.MouseLeave += (s, e) => { isTrafficHovered = false; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
                 btnLiquidGlass.Paint += (s, e) => {
                     var g = e.Graphics;
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -1051,14 +1049,6 @@ namespace PPTWebBrowserAddIn
                     {
                         g.DrawEllipse(pen, circleRect);
                     }
-                    if (isTrafficHovered)
-                    {
-                        using (var symbolPen = new Pen(Color.FromArgb(77, 0, 0), 1.2f))
-                        {
-                            g.DrawLine(symbolPen, 7, 7, 13, 13);
-                            g.DrawLine(symbolPen, 13, 7, 7, 13);
-                        }
-                    }
                 };
 
                 // Yellow Minimize Button (macOS #FFBD2E)
@@ -1071,8 +1061,6 @@ namespace PPTWebBrowserAddIn
                 _btnRefresh.Cursor = Cursors.Hand;
                 _btnRefresh.Click += (s, e) => { this.MinimizeWindow(); };
                 _btnRefresh.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.MinimizeWindow(); };
-                _btnRefresh.MouseEnter += (s, e) => { isTrafficHovered = true; btnLiquidGlass.Invalidate(); _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
-                _btnRefresh.MouseLeave += (s, e) => { isTrafficHovered = false; btnLiquidGlass.Invalidate(); _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
                 _btnRefresh.Paint += (s, e) => {
                     var g = e.Graphics;
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -1086,13 +1074,6 @@ namespace PPTWebBrowserAddIn
                     {
                         g.DrawEllipse(pen, circleRect);
                     }
-                    if (isTrafficHovered)
-                    {
-                        using (var symbolPen = new Pen(Color.FromArgb(92, 64, 0), 1.2f))
-                        {
-                            g.DrawLine(symbolPen, 7, 10, 13, 10);
-                        }
-                    }
                 };
 
                 // Green Fullscreen / Maximize Button (macOS #27C93F)
@@ -1105,8 +1086,6 @@ namespace PPTWebBrowserAddIn
                 _btnFullScreen.Cursor = Cursors.Hand;
                 _btnFullScreen.Click += (s, e) => { this.ToggleMaximize(); };
                 _btnFullScreen.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.ToggleMaximize(); };
-                _btnFullScreen.MouseEnter += (s, e) => { isTrafficHovered = true; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); _btnFullScreen.Invalidate(); };
-                _btnFullScreen.MouseLeave += (s, e) => { isTrafficHovered = false; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); _btnFullScreen.Invalidate(); };
                 _btnFullScreen.Paint += (s, e) => {
                     var g = e.Graphics;
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -1119,16 +1098,6 @@ namespace PPTWebBrowserAddIn
                     using (var pen = new Pen(Color.FromArgb(26, 171, 41), 1f))
                     {
                         g.DrawEllipse(pen, circleRect);
-                    }
-                    if (isTrafficHovered)
-                    {
-                        using (var symbolBrush = new SolidBrush(Color.FromArgb(0, 77, 26)))
-                        {
-                            Point[] poly1 = new Point[] { new Point(7, 7), new Point(10, 7), new Point(7, 10) };
-                            Point[] poly2 = new Point[] { new Point(13, 13), new Point(10, 13), new Point(13, 10) };
-                            g.FillPolygon(symbolBrush, poly1);
-                            g.FillPolygon(symbolBrush, poly2);
-                        }
                     }
                 };
 

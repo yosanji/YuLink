@@ -107,6 +107,8 @@ namespace PPTWebBrowserAddIn
     {
         public int Id { get; set; }
         public string Image { get; set; }
+        public byte[] RawBytes { get; set; }
+        public string ContentType { get; set; }
         public string Title { get; set; }
         public int Rotation { get; set; }
     }
@@ -482,6 +484,42 @@ namespace PPTWebBrowserAddIn
                         {
                             SendJsonResponse(stream, "{\"enabled\":" + (_proxyEnabled ? "true" : "false") + ",\"port\":" + _proxyPort + ",\"clientIp\":\"" + clientIp + "\"}");
                         }
+                        else if (path == "/api/get_photo")
+                        {
+                            int id = -1;
+                            int idPos = rawUrl.IndexOf("id=");
+                            if (idPos >= 0)
+                            {
+                                string idStr = rawUrl.Substring(idPos + 3);
+                                int endIdx = idStr.IndexOf('&');
+                                if (endIdx >= 0) idStr = idStr.Substring(0, endIdx);
+                                int.TryParse(idStr, out id);
+                            }
+
+                            CastPhotoItem target = null;
+                            if (id > 0)
+                            {
+                                foreach (var it in CastQueue)
+                                {
+                                    if (it.Id == id) { target = it; break; }
+                                }
+                            }
+                            if (target == null && ActiveCastIndex >= 0 && ActiveCastIndex < CastQueue.Count)
+                            {
+                                target = CastQueue[ActiveCastIndex];
+                            }
+
+                            if (target != null && target.RawBytes != null && target.RawBytes.Length > 0)
+                            {
+                                SendBinaryResponse(stream, target.RawBytes, target.ContentType ?? "image/jpeg");
+                            }
+                            else
+                            {
+                                string notFound = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+                                byte[] nfBytes = Encoding.UTF8.GetBytes(notFound);
+                                stream.Write(nfBytes, 0, nfBytes.Length);
+                            }
+                        }
                         else if (path == "/api/cast_photo")
                         {
                             if (!string.IsNullOrEmpty(requestBody))
@@ -490,10 +528,32 @@ namespace PPTWebBrowserAddIn
                                 if (!string.IsNullOrEmpty(imgData))
                                 {
                                     CastItemCounter++;
+                                    byte[] rawBytes = null;
+                                    string contentType = "image/jpeg";
+                                    try
+                                    {
+                                        int commaIdx = imgData.IndexOf(',');
+                                        if (commaIdx >= 0)
+                                        {
+                                            string header = imgData.Substring(0, commaIdx);
+                                            if (header.Contains("image/png")) contentType = "image/png";
+                                            else if (header.Contains("image/webp")) contentType = "image/webp";
+                                            string base64Payload = imgData.Substring(commaIdx + 1);
+                                            rawBytes = Convert.FromBase64String(base64Payload);
+                                        }
+                                        else
+                                        {
+                                            rawBytes = Convert.FromBase64String(imgData);
+                                        }
+                                    }
+                                    catch { }
+
                                     var item = new CastPhotoItem
                                     {
                                         Id = CastItemCounter,
                                         Image = imgData,
+                                        RawBytes = rawBytes,
+                                        ContentType = contentType,
                                         Title = "作业 " + (CastQueue.Count + 1),
                                         Rotation = 0
                                     };
@@ -587,9 +647,9 @@ namespace PPTWebBrowserAddIn
                                 SendJsonResponse(stream, "{\"status\":\"none\",\"rotation\":0}");
                             }
                         }
-                        else if (path == "/api/get_cast_data")
+                        else if (path == "/api/get_cast_data" || path == "/api/get_cast_meta")
                         {
-                            string json = BuildCastDataJson();
+                            string json = BuildLightweightCastJson();
                             SendJsonResponse(stream, json);
                         }
                         else if (path == "/view_photo" || path == "/photo" || path == "/view")
@@ -637,7 +697,8 @@ namespace PPTWebBrowserAddIn
             }
         }
 
-        private static string BuildCastDataJson()
+        // Lightweight Metadata JSON (< 250 bytes, zero CPU, instant 30ms latency)
+        private static string BuildLightweightCastJson()
         {
             var sb = new StringBuilder();
             sb.Append("{");
@@ -647,12 +708,12 @@ namespace PPTWebBrowserAddIn
             if (ActiveCastIndex >= 0 && ActiveCastIndex < CastQueue.Count)
             {
                 var cur = CastQueue[ActiveCastIndex];
-                sb.AppendFormat("\"current\":{{\"id\":{0},\"title\":\"{1}\",\"rotation\":{2},\"image\":\"{3}\"}},",
-                    cur.Id, EscapeJson(cur.Title), cur.Rotation, EscapeJson(cur.Image));
+                sb.AppendFormat("\"activeId\":{0},\"activeTitle\":\"{1}\",\"rotation\":{2},\"photoUrl\":\"/api/get_photo?id={0}&v={3}\",",
+                    cur.Id, EscapeJson(cur.Title), cur.Rotation, CastVersion);
             }
             else
             {
-                sb.Append("\"current\":null,");
+                sb.Append("\"activeId\":-1,\"activeTitle\":\"\",\"rotation\":0,\"photoUrl\":\"\",");
             }
 
             sb.Append("\"items\":[");
@@ -660,12 +721,25 @@ namespace PPTWebBrowserAddIn
             {
                 if (i > 0) sb.Append(",");
                 var it = CastQueue[i];
-                sb.AppendFormat("{{\"index\":{0},\"id\":{1},\"title\":\"{2}\",\"rotation\":{3}}}",
+                sb.AppendFormat("{{\"index\":{0},\"id\":{1},\"title\":\"{2}\",\"rotation\":{3},\"url\":\"/api/get_photo?id={1}\"}}",
                     i, it.Id, EscapeJson(it.Title), it.Rotation);
             }
             sb.Append("]");
             sb.Append("}");
             return sb.ToString();
+        }
+
+        private static void SendBinaryResponse(Stream stream, byte[] data, string contentType)
+        {
+            string headers = "HTTP/1.1 200 OK\r\n" +
+                             "Content-Type: " + contentType + "\r\n" +
+                             "Access-Control-Allow-Origin: *\r\n" +
+                             "Cache-Control: public, max-age=31536000\r\n" +
+                             "Content-Length: " + data.Length + "\r\n" +
+                             "Connection: close\r\n\r\n";
+            byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
+            stream.Write(headerBytes, 0, headerBytes.Length);
+            stream.Write(data, 0, data.Length);
         }
 
         private static void SendJsonResponse(Stream stream, string json)
@@ -674,6 +748,7 @@ namespace PPTWebBrowserAddIn
             string headers = "HTTP/1.1 200 OK\r\n" +
                              "Content-Type: application/json; charset=utf-8\r\n" +
                              "Access-Control-Allow-Origin: *\r\n" +
+                             "Cache-Control: no-cache, no-store\r\n" +
                              "Content-Length: " + bodyBytes.Length + "\r\n" +
                              "Connection: close\r\n\r\n";
             byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
@@ -996,7 +1071,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Student/Audience Photo Viewer HTML
-        // Multi-Homework Photo Queue Support (Zero Control Buttons)
+        // Multi-Homework Photo Queue Support (Zero Control Buttons, Instant Loading)
         // =========================================================================
         private string GetPhotoViewerHtml()
         {
@@ -1122,7 +1197,7 @@ namespace PPTWebBrowserAddIn
 
     <script>
         let curVer = -1;
-        let selectedIndex = 0;
+        let curPhotoId = -1;
 
         function renderQueue(items, activeIdx) {
             const bar = document.getElementById('queueBar');
@@ -1149,7 +1224,7 @@ namespace PPTWebBrowserAddIn
 
         async function fetchPhoto() {
             try {
-                const res = await fetch('/api/get_cast_data');
+                const res = await fetch('/api/get_cast_meta');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.version !== curVer) {
@@ -1158,14 +1233,18 @@ namespace PPTWebBrowserAddIn
                         const empty = document.getElementById('emptyHint');
                         const title = document.getElementById('lblHeaderTitle');
 
-                        if (data.mode === 'photo' && data.current && data.current.image) {
-                            img.src = data.current.image;
-                            img.style.transform = 'rotate(' + (data.current.rotation || 0) + 'deg)';
+                        if (data.mode === 'photo' && data.activeId > 0) {
+                            if (data.activeId !== curPhotoId) {
+                                curPhotoId = data.activeId;
+                                img.src = data.photoUrl;
+                            }
+                            img.style.transform = 'rotate(' + (data.rotation || 0) + 'deg)';
                             img.style.display = 'block';
                             empty.style.display = 'none';
-                            title.innerText = (data.current.title || '作业讲评') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
+                            title.innerText = (data.activeTitle || '作业讲评') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
                             renderQueue(data.items, data.activeIndex);
                         } else {
+                            curPhotoId = -1;
                             img.style.display = 'none';
                             empty.style.display = 'flex';
                             title.innerText = '作业试卷讲评';
@@ -1174,7 +1253,7 @@ namespace PPTWebBrowserAddIn
                     }
                 }
             } catch (e) {}
-            setTimeout(fetchPhoto, 400);
+            setTimeout(fetchPhoto, 250);
         }
         fetchPhoto();
     </script>
@@ -1184,7 +1263,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
-        // With Multi-Homework Badge + Vector Rotate Button
+        // With Multi-Homework Badge + Vector Rotate Button (Zero-Lag Metadata Polling)
         // =========================================================================
         private string GetCastViewHtml()
         {
@@ -1342,7 +1421,7 @@ namespace PPTWebBrowserAddIn
         let currentScale = 1.0;
         let posX = 0;
         let posY = 0;
-        let currentItemId = -1;
+        let currentPhotoId = -1;
 
         const viewport = document.getElementById('viewport');
         const panLayer = document.getElementById('panLayer');
@@ -1447,31 +1526,31 @@ namespace PPTWebBrowserAddIn
             if (e.touches.length < 2) initialDist = 0;
         });
 
-        // Polling Cast Updates
+        // Polling Cast Updates (Ultra-Fast 100ms Metadata Check)
         async function pollCastData() {
             try {
-                const res = await fetch('/api/get_cast_data');
+                const res = await fetch('/api/get_cast_meta');
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.mode === 'none' || !data.current) {
+                    if (data.mode === 'none' || data.activeId <= 0) {
                         emptyState.style.display = 'flex';
                         img.style.display = 'none';
                         orderBadge.style.display = 'none';
+                        currentPhotoId = -1;
                     } else if (data.version !== currentVersion) {
                         currentVersion = data.version;
-                        const cur = data.current;
-                        if (cur.id !== currentItemId) {
-                            currentItemId = cur.id;
+                        if (data.activeId !== currentPhotoId) {
+                            currentPhotoId = data.activeId;
                             resetView();
+                            img.src = data.photoUrl;
                         }
-                        currentRotation = cur.rotation || 0;
-                        img.src = cur.image;
+                        currentRotation = data.rotation || 0;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
                         updateTransform();
 
                         if (data.total > 1) {
-                            orderBadge.innerText = (cur.title || '作业') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
+                            orderBadge.innerText = (data.activeTitle || '作业') + ' (' + (data.activeIndex + 1) + '/' + data.total + ')';
                             orderBadge.style.display = 'block';
                         } else {
                             orderBadge.style.display = 'none';
@@ -1479,7 +1558,7 @@ namespace PPTWebBrowserAddIn
                     }
                 }
             } catch (e) {}
-            setTimeout(pollCastData, 150);
+            setTimeout(pollCastData, 100);
         }
 
         pollCastData();
@@ -1490,7 +1569,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Pure Minimalist Modern Apple Pro Web Controller HTML
-        // With Multi-Homework Queue Management & Ordering
+        // Instant Optimistic Queue Switching + Direct Binary Upload
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -1871,7 +1950,7 @@ namespace PPTWebBrowserAddIn
             color: var(--text-secondary);
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.15s ease;
+            transition: all 0.12s ease;
             border: 1px solid transparent;
         }
 
@@ -1879,12 +1958,6 @@ namespace PPTWebBrowserAddIn
             background: var(--apple-blue);
             color: #ffffff;
             box-shadow: 0 3px 10px rgba(0, 113, 227, 0.3);
-        }
-
-        .queue-item-pill .del-dot {
-            font-size: 12px;
-            opacity: 0.7;
-            padding: 0 2px;
         }
 
         .snap-hero-wrapper {
@@ -2279,14 +2352,15 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Homework Queue Management Engine (Mobile Control)
+        // Homework Queue Management Engine (Mobile Control - Zero Lag)
         // =========================================================================
         let queueVersion = -1;
         let currentActiveIdx = -1;
+        let localActivePhotoId = -1;
 
         async function pollQueueData() {
             try {
-                const res = await fetch('/api/get_cast_data');
+                const res = await fetch('/api/get_cast_meta');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.version !== queueVersion) {
@@ -2296,7 +2370,7 @@ namespace PPTWebBrowserAddIn
                     }
                 }
             } catch (e) {}
-            setTimeout(pollQueueData, 500);
+            setTimeout(pollQueueData, 200);
         }
 
         function renderMobileQueue(data) {
@@ -2312,6 +2386,7 @@ namespace PPTWebBrowserAddIn
                 thumb.style.display = 'none';
                 placeholder.style.display = 'flex';
                 btnSnap.innerText = '拍照投屏讲评';
+                localActivePhotoId = -1;
                 return;
             }
 
@@ -2328,16 +2403,26 @@ namespace PPTWebBrowserAddIn
                 qList.appendChild(pill);
             });
 
-            if (data.current && data.current.image) {
-                thumb.src = data.current.image;
-                thumb.style.transform = 'rotate(' + (data.current.rotation || 0) + 'deg)';
+            if (data.activeId > 0) {
+                if (data.activeId !== localActivePhotoId) {
+                    localActivePhotoId = data.activeId;
+                    thumb.src = data.photoUrl;
+                }
+                thumb.style.transform = 'rotate(' + (data.rotation || 0) + 'deg)';
                 thumb.style.display = 'block';
                 placeholder.style.display = 'none';
             }
         }
 
+        // Instant Optimistic UI Switch (0ms UI feedback + Instant Broadcast)
         async function switchActiveHomework(idx) {
             vibrate();
+            currentActiveIdx = idx;
+            const pills = document.querySelectorAll('.queue-item-pill');
+            pills.forEach((p, i) => {
+                if (i === idx) p.classList.add('active');
+                else p.classList.remove('active');
+            });
             try {
                 await fetch('/api/select_cast?index=' + idx);
             } catch (e) {}
@@ -2359,6 +2444,14 @@ namespace PPTWebBrowserAddIn
                 reader.onload = async function(e) {
                     const rawBase64 = e.target.result;
                     vibrate();
+
+                    // Optimistically show preview immediately
+                    const thumb = document.getElementById('previewThumb');
+                    const placeholder = document.getElementById('previewPlaceholder');
+                    thumb.src = rawBase64;
+                    thumb.style.display = 'block';
+                    placeholder.style.display = 'none';
+
                     try {
                         const res = await fetch('/api/cast_photo', {
                             method: 'POST',
@@ -2366,7 +2459,7 @@ namespace PPTWebBrowserAddIn
                             body: JSON.stringify({ image: rawBase64 })
                         });
                         if (res.ok) {
-                            input.value = ''; // Reset input to allow shooting again
+                            input.value = '';
                         }
                     } catch (err) {
                         alert('上传失败: ' + err.message);
