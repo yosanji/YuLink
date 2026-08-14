@@ -369,7 +369,7 @@ namespace PPTWebBrowserAddIn
 
                         // Read request body for POST
                         string requestBody = "";
-                        if (contentLength > 0 && contentLength < 30000000)
+                        if (contentLength > 0 && contentLength < 35000000)
                         {
                             char[] bodyBuffer = new char[contentLength];
                             int totalRead = 0;
@@ -424,10 +424,10 @@ namespace PPTWebBrowserAddIn
                                 float vol = 0.5f;
                                 if (float.TryParse(valStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out vol))
                                 {
-                                    // 1. Set Windows Native System Master Volume directly
+                                    // 1. Direct real-time Windows Native Master Volume adjustment
                                     WindowsAudioHelper.SetMasterVolume(vol);
 
-                                    // 2. Adjust PPT slide media shapes volume
+                                    // 2. Direct PPT slide media shapes volume
                                     ControlPowerPointVolume(vol);
                                 }
                             }
@@ -443,6 +443,7 @@ namespace PPTWebBrowserAddIn
                                 {
                                     CurrentCastImage = imgData;
                                     CastMode = "photo";
+                                    CastRotation = 0; // Reset rotation for new photo
                                     CastVersion++;
                                     
                                     if (Globals.ThisAddIn != null)
@@ -844,6 +845,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
+        // With Full Interactive Drag/Pan, Mouse-wheel Zoom & Touch Gesture Support
         // =========================================================================
         private string GetCastViewHtml()
         {
@@ -851,12 +853,12 @@ namespace PPTWebBrowserAddIn
 <html lang=""zh-CN"">
 <head>
     <meta charset=""utf-8"">
-    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"">
     <title>YuLink 无线展台 · 大屏接收端</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
-            background-color: #0b0c10;
+            background-color: #0c0d10;
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
             width: 100vw;
@@ -873,15 +875,23 @@ namespace PPTWebBrowserAddIn
             align-items: center;
             justify-content: center;
             position: relative;
-            background: radial-gradient(circle at 50% 50%, #1c1d22 0%, #0c0d10 100%);
+            background: radial-gradient(circle at 50% 50%, #1a1c22 0%, #090a0d 100%);
+            overflow: hidden;
+            touch-action: none;
         }
         #castImage {
             max-width: 96vw;
             max-height: 94vh;
             object-fit: contain;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.7);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            cursor: grab;
+            transform-origin: center center;
+            will-change: transform;
+            transition: box-shadow 0.2s ease;
+        }
+        #castImage:active {
+            cursor: grabbing;
         }
         .hud-header {
             position: absolute;
@@ -896,7 +906,8 @@ namespace PPTWebBrowserAddIn
             -webkit-backdrop-filter: blur(20px);
             border-radius: 20px;
             z-index: 100;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            pointer-events: none;
         }
         .hud-dot {
             width: 8px;
@@ -912,7 +923,7 @@ namespace PPTWebBrowserAddIn
             top: 20px;
             right: 24px;
             display: flex;
-            gap: 10px;
+            gap: 8px;
             z-index: 100;
         }
         .hud-btn {
@@ -921,7 +932,7 @@ namespace PPTWebBrowserAddIn
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(0, 0, 0, 0.08);
             color: #1d1d1f;
-            padding: 8px 16px;
+            padding: 8px 15px;
             border-radius: 18px;
             font-size: 13px;
             font-weight: 600;
@@ -929,8 +940,8 @@ namespace PPTWebBrowserAddIn
             display: flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
         }
         .hud-btn:hover { background: #ffffff; transform: scale(1.03); }
         .hud-btn.close { color: #ff3b30; }
@@ -938,13 +949,14 @@ namespace PPTWebBrowserAddIn
         
         .empty-hint {
             text-align: center;
-            color: #86868b;
+            color: #8e8e93;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 12px;
+            pointer-events: none;
         }
-        .empty-hint svg { width: 56px; height: 56px; fill: #86868b; }
+        .empty-hint svg { width: 56px; height: 56px; fill: #636366; }
     </style>
 </head>
 <body>
@@ -955,16 +967,17 @@ namespace PPTWebBrowserAddIn
         </div>
 
         <div class=""hud-tools"">
-            <button class=""hud-btn"" onclick=""rotateImage()"">旋转 90°</button>
             <button class=""hud-btn"" onclick=""zoomIn()"">放大</button>
             <button class=""hud-btn"" onclick=""zoomOut()"">缩小</button>
+            <button class=""hud-btn"" onclick=""resetView()"">适应屏幕</button>
+            <button class=""hud-btn"" onclick=""rotateImage()"">旋转 90°</button>
             <button class=""hud-btn close"" onclick=""stopCast()"">退出展台</button>
         </div>
 
         <div id=""emptyState"" class=""empty-hint"">
             <svg viewBox=""0 0 24 24""><path d=""M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z""/></svg>
             <div style=""font-size: 16px; font-weight: 600; color: #f5f5f7;"">请使用手机在【实物展台】中拍照投屏</div>
-            <div style=""font-size: 13px; color: #86868b;"">照片投屏后可直接使用画笔在投影屏幕上圈画批改</div>
+            <div style=""font-size: 13px; color: #8e8e93;"">照片原图无损传输 · 滚轮缩放 · 鼠标或触摸屏自由拖拽平移</div>
         </div>
 
         <img id=""castImage"" style=""display: none;"" alt=""Cast Preview"" />
@@ -974,12 +987,26 @@ namespace PPTWebBrowserAddIn
         let currentVersion = -1;
         let currentRotation = 0;
         let currentScale = 1.0;
+        let posX = 0;
+        let posY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+
+        const container = document.getElementById('viewContainer');
         const img = document.getElementById('castImage');
         const emptyState = document.getElementById('emptyState');
         const statusEl = document.getElementById('castStatus');
 
         function updateTransform() {
-            img.style.transform = 'rotate(' + currentRotation + 'deg) scale(' + currentScale + ')';
+            img.style.transform = 'translate(' + posX + 'px, ' + posY + 'px) rotate(' + currentRotation + 'deg) scale(' + currentScale + ')';
+        }
+
+        function resetView() {
+            currentScale = 1.0;
+            posX = 0;
+            posY = 0;
+            updateTransform();
         }
 
         function rotateImage() {
@@ -988,18 +1015,93 @@ namespace PPTWebBrowserAddIn
         }
 
         function zoomIn() {
-            currentScale = Math.min(3.0, currentScale + 0.2);
+            currentScale = Math.min(6.0, currentScale * 1.25);
             updateTransform();
         }
 
         function zoomOut() {
-            currentScale = Math.max(0.5, currentScale - 0.2);
+            currentScale = Math.max(0.4, currentScale / 1.25);
             updateTransform();
         }
 
         function stopCast() {
             fetch('/api/stop_cast', { method: 'POST' });
         }
+
+        // ==========================================
+        // Interactive Mouse Drag & Touch Pan/Zoom
+        // ==========================================
+        container.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            isDragging = true;
+            startX = e.clientX - posX;
+            startY = e.clientY - posY;
+            img.style.transition = 'none';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            posX = e.clientX - startX;
+            posY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                img.style.transition = 'transform 0.1s ease-out';
+            }
+        });
+
+        // Mouse Wheel Zoom
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 1.15 : 0.85;
+            currentScale = Math.max(0.4, Math.min(6.0, currentScale * delta));
+            updateTransform();
+        }, { passive: false });
+
+        // Touch gestures (Pinch to Zoom & Pan on interactive screens)
+        let initialDistance = 0;
+        let initialScale = 1;
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - posX;
+                startY = e.touches[0].clientY - posY;
+                img.style.transition = 'none';
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                initialDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = currentScale;
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isDragging) {
+                posX = e.touches[0].clientX - startX;
+                posY = e.touches[0].clientY - startY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                if (initialDistance > 0) {
+                    currentScale = Math.max(0.4, Math.min(6.0, initialScale * (dist / initialDistance)));
+                    updateTransform();
+                }
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchend', () => {
+            isDragging = false;
+            initialDistance = 0;
+            img.style.transition = 'transform 0.1s ease-out';
+        });
 
         async function pollCastData() {
             try {
@@ -1012,10 +1114,15 @@ namespace PPTWebBrowserAddIn
                         statusEl.innerText = 'YuLink 无线展台 · 等待手机拍照投屏';
                     } else if (data.image && data.version !== currentVersion) {
                         currentVersion = data.version;
+                        currentRotation = data.rotation || 0;
+                        resetView();
                         img.src = data.image;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
-                        statusEl.innerText = '实物作业拍照讲评 (可使用画笔批改)';
+                        statusEl.innerText = '实物作业拍照讲评 (可自由拖拽、滚轮缩放、画笔批改)';
+                    } else if (data.rotation !== currentRotation) {
+                        currentRotation = data.rotation;
+                        updateTransform();
                     }
                 }
             } catch (e) {}
@@ -1030,6 +1137,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Pure Minimalist Modern Apple Pro Web Controller HTML (Zero Emoji, Clean Vectors)
+        // With High-Precision Real-time Audio Volume & 100% Lossless Raw Photo Upload
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -1295,8 +1403,8 @@ namespace PPTWebBrowserAddIn
             width: 50%;
             background: var(--apple-blue);
             border-radius: 18px;
-            transition: width 0.06s ease;
             pointer-events: none;
+            will-change: width;
         }
 
         .volume-capsule-content {
@@ -1490,7 +1598,7 @@ namespace PPTWebBrowserAddIn
                 <span id=""lblVolume"" class=""volume-badge"">50%</span>
             </div>
 
-            <!-- iOS Control Center Fluid Drag Capsule Slider -->
+            <!-- iOS Control Center Fluid Drag Capsule Slider (Real-time Feedback) -->
             <div id=""volCapsule"" class=""volume-capsule-wrapper"">
                 <div id=""volFill"" class=""volume-capsule-fill"" style=""width: 50%;""></div>
                 <div class=""volume-capsule-content"">
@@ -1506,9 +1614,9 @@ namespace PPTWebBrowserAddIn
     <div id=""pane-camera"" class=""tab-pane"">
         
         <div class=""apple-card"">
-            <div class=""card-header-title"">实物展台 · 拍照讲评作业</div>
+            <div class=""card-header-title"">实物展台 · 拍照讲评作业 (100%原图无损)</div>
 
-            <!-- Native Optical Camera Trigger (100% Reliable, Zero Permission Friction) -->
+            <!-- Native Optical Camera Trigger (100% Lossless Raw Image Upload) -->
             <div class=""snap-hero-wrapper"">
                 <button class=""snap-hero-btn"">
                     <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
@@ -1522,7 +1630,7 @@ namespace PPTWebBrowserAddIn
                 <img id=""previewThumb"" alt=""Photo Preview"" />
                 <div id=""previewPlaceholder"" class=""preview-placeholder"">
                     <svg viewBox=""0 0 24 24""><path d=""M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z""/></svg>
-                    <span>拍摄后在此预览并秒级上大屏</span>
+                    <span>拍摄后在此预览并秒级上大屏 (支持滚轮缩放与拖拽)</span>
                 </div>
             </div>
 
@@ -1585,34 +1693,50 @@ namespace PPTWebBrowserAddIn
             }, 180);
         }
 
-        // iOS Control Center Volume Capsule Drag Logic
-        let currentVol = 0.5;
+        // =========================================================================
+        // High-Precision Real-time Audio Volume Dragging Engine (Zero Lag)
+        // =========================================================================
         const capsule = document.getElementById('volCapsule');
         const fill = document.getElementById('volFill');
         const badge = document.getElementById('lblVolume');
         let isDraggingVol = false;
-        let volThrottle = null;
+        let isSendingVol = false;
+        let pendingVol = null;
 
-        function updateVolumeUI(ratio, sendToServer) {
+        function updateVolumeUI(ratio) {
             ratio = Math.max(0, Math.min(1, ratio));
-            currentVol = ratio;
             const percent = Math.round(ratio * 100);
             fill.style.width = percent + '%';
             badge.innerText = percent + '%';
+        }
 
-            if (sendToServer) {
-                if (volThrottle) clearTimeout(volThrottle);
-                volThrottle = setTimeout(() => {
-                    fetch('/volume?val=' + ratio.toFixed(2));
-                }, 40);
-            }
+        function dispatchVolumeToServer(ratio) {
+            pendingVol = ratio;
+            if (isSendingVol) return;
+
+            isSendingVol = true;
+            const toSend = pendingVol;
+            pendingVol = null;
+
+            fetch('/volume?val=' + toSend.toFixed(2))
+                .finally(() => {
+                    isSendingVol = false;
+                    if (pendingVol !== null) {
+                        dispatchVolumeToServer(pendingVol);
+                    }
+                });
         }
 
         function handleCapsulePointer(e) {
             const rect = capsule.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const ratio = (clientX - rect.left) / rect.width;
-            updateVolumeUI(ratio, true);
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            let ratio = (clientX - rect.left) / rect.width;
+            ratio = Math.max(0, Math.min(1, ratio));
+
+            // Instant UI update
+            updateVolumeUI(ratio);
+            // Instant real-time backend dispatch
+            dispatchVolumeToServer(ratio);
         }
 
         capsule.addEventListener('mousedown', (e) => {
@@ -1632,7 +1756,10 @@ namespace PPTWebBrowserAddIn
         });
 
         window.addEventListener('touchmove', (e) => {
-            if (isDraggingVol) handleCapsulePointer(e);
+            if (isDraggingVol) {
+                e.preventDefault();
+                handleCapsulePointer(e);
+            }
         }, { passive: false });
 
         window.addEventListener('mouseup', () => { isDraggingVol = false; });
@@ -1645,14 +1772,16 @@ namespace PPTWebBrowserAddIn
                 if (res.ok) {
                     const data = await res.json();
                     if (typeof data.volume === 'number') {
-                        updateVolumeUI(data.volume, false);
+                        updateVolumeUI(data.volume);
                     }
                 }
             } catch (e) {}
         }
         fetchSystemVolume();
 
-        // Visualizer Native Photo Capture (100% reliable on all phones over HTTP)
+        // =========================================================================
+        // 100% Lossless Raw Image Upload Engine
+        // =========================================================================
         function triggerCameraAgain() {
             document.getElementById('nativeCameraInput').click();
         }
@@ -1662,11 +1791,12 @@ namespace PPTWebBrowserAddIn
                 const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = async function(e) {
-                    const base64 = e.target.result;
+                    // Raw 100% bit-for-bit lossless DataURL directly from camera sensor
+                    const rawBase64 = e.target.result;
                     
                     const thumb = document.getElementById('previewThumb');
                     const placeholder = document.getElementById('previewPlaceholder');
-                    thumb.src = base64;
+                    thumb.src = rawBase64;
                     thumb.style.display = 'block';
                     placeholder.style.display = 'none';
 
@@ -1675,10 +1805,10 @@ namespace PPTWebBrowserAddIn
                         const res = await fetch('/api/cast_photo', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ image: base64 })
+                            body: JSON.stringify({ image: rawBase64 })
                         });
                         if (res.ok) {
-                            alert('照片已秒级投射到 PPT 大屏！可在投影屏幕上使用悬浮画笔直接圈画打分批改。');
+                            alert('照片原图无损投屏成功！大屏端可自由拖拽、滚轮缩放与画笔批改。');
                         }
                     } catch (err) {
                         alert('上传失败: ' + err.message);
