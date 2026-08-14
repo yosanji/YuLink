@@ -32,8 +32,7 @@ namespace PPTWebBrowserAddIn
         public static string CurrentProxyTarget { get; set; }
         public static string CurrentCastImage = "";
         public static int CastVersion = 0;
-        public static string CastMode = "none"; // none, photo, stream, mirror
-        public static string CastStreamUrl = "";
+        public static string CastMode = "none"; // none, photo, stream
         public static int CastRotation = 0; // 0, 90, 180, 270
 
         private static int _lastSlideId = -1;
@@ -48,7 +47,6 @@ namespace PPTWebBrowserAddIn
             try { Globals.ThisAddIn.LogToFile("ControlVideo: Reset active video focus."); } catch {}
         }
 
-        
         public static string GetBestLocalIpAddress()
         {
             try
@@ -65,7 +63,7 @@ namespace PPTWebBrowserAddIn
                     }
 
                     string name = (nic.Name + " " + nic.Description).ToLower();
-                    // Exclude known virtual / proxy / container / VPN adapters
+                    // Exclude virtual / proxy / container / VPN adapters
                     if (name.Contains("meta") || name.Contains("clash") || name.Contains("wsl") || 
                         name.Contains("vethernet") || name.Contains("vmware") || name.Contains("virtualbox") || 
                         name.Contains("tap") || name.Contains("docker") || name.Contains("tailscale") || 
@@ -87,7 +85,7 @@ namespace PPTWebBrowserAddIn
                             if (nic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || 
                                 name.Contains("wlan") || name.Contains("wi-fi") || name.Contains("wireless"))
                             {
-                                score += 100; // Prioritize Wi-Fi since mobile phones connect to Wi-Fi
+                                score += 100; // Prioritize Wi-Fi
                             }
                             else if (nic.NetworkInterfaceType == NetworkInterfaceType.Ethernet || 
                                      name.Contains("ethernet") || name.Contains("以太网"))
@@ -157,7 +155,7 @@ namespace PPTWebBrowserAddIn
 
             try
             {
-                // Auto detect best active LAN IPv4 (prioritizing Wi-Fi/Ethernet over virtual TUN/Meta/WSL adapters)
+                // Auto detect best active LAN IPv4
                 string localIp = GetBestLocalIpAddress();
                 
                 // Bind to standard TCP socket
@@ -366,21 +364,6 @@ namespace PPTWebBrowserAddIn
                             }
                             SendJsonResponse(stream, "{\"status\":\"success\",\"version\":" + CastVersion + "}");
                         }
-                        else if (path == "/api/start_mirror")
-                        {
-                            // Connect to external mobile screen stream (e.g. ScreenStream URL)
-                            string mirrorUrl = ExtractJsonString(requestBody, "url");
-                            if (!string.IsNullOrEmpty(mirrorUrl))
-                            {
-                                CastStreamUrl = mirrorUrl;
-                                CastMode = "mirror";
-                                if (Globals.ThisAddIn != null)
-                                {
-                                    Globals.ThisAddIn.ShowLiveCast(mirrorUrl);
-                                }
-                            }
-                            SendJsonResponse(stream, "{\"status\":\"success\"}");
-                        }
                         else if (path == "/api/stop_cast" || path == "/stop_cast")
                         {
                             CastMode = "none";
@@ -399,8 +382,8 @@ namespace PPTWebBrowserAddIn
                         else if (path == "/api/get_cast_data")
                         {
                             string json = string.Format(
-                                "{{\"mode\":\"{0}\",\"version\":{1},\"rotation\":{2},\"url\":\"{3}\",\"image\":\"{4}\"}}",
-                                CastMode, CastVersion, CastRotation, EscapeJson(CastStreamUrl), EscapeJson(CurrentCastImage)
+                                "{{\"mode\":\"{0}\",\"version\":{1},\"rotation\":{2},\"image\":\"{3}\"}}",
+                                CastMode, CastVersion, CastRotation, EscapeJson(CurrentCastImage)
                             );
                             SendJsonResponse(stream, json);
                         }
@@ -438,12 +421,6 @@ namespace PPTWebBrowserAddIn
                         }
 
                         stream.Flush();
-                        try
-                        {
-                            // Graceful close without premature RST
-                            stream.Flush();
-                        }
-                        catch { }
                     }
                 }
                 catch { }
@@ -746,7 +723,7 @@ namespace PPTWebBrowserAddIn
         body {
             background-color: #0b0c10;
             color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
             width: 100vw;
             height: 100vh;
             overflow: hidden;
@@ -761,85 +738,85 @@ namespace PPTWebBrowserAddIn
             align-items: center;
             justify-content: center;
             position: relative;
-            background: radial-gradient(circle at 50% 50%, #1a1c23 0%, #08090c 100%);
+            background: radial-gradient(circle at 50% 50%, #1c1d22 0%, #0c0d10 100%);
         }
         #castImage {
             max-width: 96vw;
             max-height: 94vh;
             object-fit: contain;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7);
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .hud-header {
             position: absolute;
-            top: 16px;
+            top: 20px;
             left: 24px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 8px 16px;
-            background: rgba(20, 22, 28, 0.75);
+            gap: 10px;
+            padding: 8px 18px;
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 20px;
             z-index: 100;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         .hud-dot {
             width: 8px;
             height: 8px;
-            background: #30d158;
+            background: #34c759;
             border-radius: 50%;
-            box-shadow: 0 0 8px #30d158;
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 8px #34c759;
         }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        .hud-title { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: #f0f2f5; }
+        .hud-title { font-size: 13px; font-weight: 600; color: #1d1d1f; letter-spacing: -0.2px; }
         
         .hud-tools {
             position: absolute;
-            top: 16px;
+            top: 20px;
             right: 24px;
             display: flex;
-            gap: 8px;
+            gap: 10px;
             z-index: 100;
         }
         .hud-btn {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #fff;
-            padding: 8px 14px;
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            color: #1d1d1f;
+            padding: 8px 16px;
             border-radius: 18px;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .hud-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
-        .hud-btn.close:hover { background: rgba(255, 69, 58, 0.8); border-color: rgba(255, 69, 58, 0.8); }
+        .hud-btn:hover { background: #ffffff; transform: scale(1.03); }
+        .hud-btn.close { color: #ff3b30; }
+        .hud-btn.close:hover { background: #ff3b30; color: #ffffff; }
         
         .empty-hint {
             text-align: center;
-            color: #8e8e93;
+            color: #86868b;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 12px;
         }
-        .empty-hint svg { width: 64px; height: 64px; fill: #636366; }
+        .empty-hint svg { width: 56px; height: 56px; fill: #86868b; }
     </style>
 </head>
 <body>
     <div id=""viewContainer"">
         <div class=""hud-header"">
             <div class=""hud-dot""></div>
-            <div class=""hud-title"" id=""castStatus"">YuLink 无线展台 · 等待手机投屏</div>
+            <div class=""hud-title"" id=""castStatus"">YuLink 无线展台 · 等待手机拍照投屏</div>
         </div>
 
         <div class=""hud-tools"">
@@ -851,8 +828,8 @@ namespace PPTWebBrowserAddIn
 
         <div id=""emptyState"" class=""empty-hint"">
             <svg viewBox=""0 0 24 24""><path d=""M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z""/></svg>
-            <div style=""font-size: 16px; font-weight: 500;"">请使用手机在遥控器中点击【拍照投屏】或【开启实时展台】</div>
-            <div style=""font-size: 13px; color: #636366;"">投屏后可直接使用画笔在投影屏幕上圈画批改</div>
+            <div style=""font-size: 16px; font-weight: 600; color: #f5f5f7;"">请使用手机在【无线展台】中点击拍照投屏</div>
+            <div style=""font-size: 13px; color: #86868b;"">投屏后可直接使用画笔在投影屏幕上圈画批改</div>
         </div>
 
         <img id=""castImage"" style=""display: none;"" alt=""Cast Preview"" />
@@ -897,21 +874,21 @@ namespace PPTWebBrowserAddIn
                     if (data.mode === 'none') {
                         emptyState.style.display = 'flex';
                         img.style.display = 'none';
-                        statusEl.innerText = 'YuLink 无线展台 · 等待手机投屏';
+                        statusEl.innerText = 'YuLink 无线展台 · 等待手机拍照投屏';
                     } else if (data.image && data.version !== currentVersion) {
                         currentVersion = data.version;
                         img.src = data.image;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
                         if (data.mode === 'photo') {
-                            statusEl.innerText = '📸 实物作业拍照讲评 (可使用画笔圈画批注)';
+                            statusEl.innerText = '📸 实物作业拍照讲评 (可使用画笔批改)';
                         } else if (data.mode === 'stream') {
                             statusEl.innerText = '🎥 实时动态实物展台直播中';
                         }
                     }
                 }
             } catch (e) {}
-            setTimeout(pollCastData, 100);
+            setTimeout(pollCastData, 120);
         }
 
         pollCastData();
@@ -921,7 +898,7 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Mobile All-In-One Remote Controller & Camera Visualizer HTML
+        // Apple Modern Pure White Minimalist Mobile Web Controller HTML
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -930,17 +907,21 @@ namespace PPTWebBrowserAddIn
 <head>
     <meta charset=""utf-8"">
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"">
-    <title>YuLink 移动智能中枢</title>
+    <title>YuLink 遥控中心</title>
     <style>
         :root {
-            --bg-color: #0c0d12;
-            --card-bg: rgba(28, 30, 38, 0.7);
-            --card-border: rgba(255, 255, 255, 0.1);
-            --accent-green: #30d158;
-            --accent-blue: #0a84ff;
-            --accent-red: #ff453a;
-            --text-main: #f5f5f7;
-            --text-sub: #86868b;
+            --bg-page: #f5f5f7;
+            --card-bg: #ffffff;
+            --card-border: rgba(0, 0, 0, 0.06);
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --btn-neutral-bg: #f2f2f7;
+            --btn-neutral-active: #e5e5ea;
+            --apple-blue: #0071e3;
+            --apple-blue-active: #0077ed;
+            --apple-green: #34c759;
+            --apple-red: #ff3b30;
+            --apple-red-bg: #fff2f1;
         }
 
         * {
@@ -952,207 +933,229 @@ namespace PPTWebBrowserAddIn
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, ""SF Pro Text"", ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, ""SF Pro Text"", ""SF Pro Display"", ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-primary);
             min-height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
             overflow-x: hidden;
             padding-bottom: 30px;
-            background-image: radial-gradient(circle at 50% -10%, #1c2235, transparent 60%);
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Top Segmented Tab Switcher */
+        /* Top Minimal Header */
+        .app-header {
+            width: 100%;
+            max-width: 360px;
+            padding: 24px 20px 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #ffffff;
+            padding: 6px 12px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--apple-green);
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--apple-green);
+        }
+
+        /* Apple iOS Segmented Control Tab Switcher */
         .tab-bar-container {
             width: 90%;
-            max-width: 360px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-radius: 24px;
-            padding: 4px;
+            max-width: 340px;
+            margin-bottom: 24px;
+            background: #e3e3e8;
+            border-radius: 16px;
+            padding: 3px;
             display: flex;
-            border: 1px solid var(--card-border);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
         }
 
         .tab-btn {
             flex: 1;
             padding: 10px 0;
             text-align: center;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
-            border-radius: 20px;
-            color: var(--text-sub);
+            border-radius: 13px;
+            color: var(--text-secondary);
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             border: none;
             background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
         .tab-btn.active {
             background: #ffffff;
-            color: #000000;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            color: var(--text-primary);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
         }
 
         /* Tab Content Panes */
         .tab-pane {
             display: none;
             width: 90%;
-            max-width: 360px;
+            max-width: 340px;
             flex-direction: column;
             align-items: center;
-            animation: fadeIn 0.25s ease forwards;
+            animation: paneFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .tab-pane.active {
             display: flex;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes paneFadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
         }
 
-        /* 🎮 Tab 1: Remote Controller */
-        .remote-body {
+        /* 🎮 Tab 1: Clean Apple Remote Card */
+        .remote-card {
             width: 100%;
-            max-width: 290px;
-            padding: 36px 24px 30px 24px;
-            background: linear-gradient(145deg, #22242c, #16181f);
-            border-radius: 40px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            background: var(--card-bg);
+            border-radius: 32px;
+            border: 1px solid var(--card-border);
+            padding: 28px 24px 28px 24px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            position: relative;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+            gap: 20px;
         }
 
-        .led-indicator {
-            width: 14px;
-            height: 14px;
-            background-color: #111;
-            border-radius: 50%;
-            margin-bottom: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
-        }
-
-        .led-light {
-            width: 6px;
-            height: 6px;
-            background-color: var(--accent-green);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--accent-green);
-            transition: all 0.15s ease;
-        }
-
-        .remote-circle-pad {
-            width: 210px;
-            height: 210px;
-            border-radius: 50%;
-            background: linear-gradient(145deg, #1b1d24, #13141a);
-            position: relative;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 30px;
-        }
-
-        .pad-btn {
-            position: absolute;
-            background: none;
-            border: none;
-            color: #f0f0f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 2;
-        }
-
-        .pad-btn:active svg {
-            transform: scale(0.9);
-            fill: var(--accent-green);
-        }
-
-        .pad-btn.top { top: 12px; left: 0; width: 100%; height: 60px; }
-        .pad-btn.bottom { bottom: 12px; left: 0; width: 100%; height: 60px; }
-        .pad-btn.center {
-            width: 82px;
-            height: 82px;
-            border-radius: 50%;
-            background: linear-gradient(145deg, #2a2c36, #1c1e26);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.2);
-            z-index: 3;
-        }
-
-        .pad-btn svg {
-            width: 26px;
-            height: 26px;
-            fill: #e5e5ea;
-            transition: all 0.15s ease;
-        }
-
-        .bottom-actions {
+        /* Primary Action Touch Control (Large Apple Next Button) */
+        .next-hero-btn {
             width: 100%;
+            height: 120px;
+            background: var(--apple-blue);
+            border-radius: 24px;
+            border: none;
             display: flex;
-            justify-content: space-around;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 8px 24px rgba(0, 113, 227, 0.28);
         }
 
-        .pill-btn {
-            width: 72px;
-            height: 38px;
-            border-radius: 19px;
-            background: linear-gradient(145deg, #2a2c36, #1c1e26);
-            border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        .next-hero-btn:active {
+            transform: scale(0.97);
+            background: var(--apple-blue-active);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2);
+        }
+
+        .next-hero-btn svg {
+            width: 36px;
+            height: 36px;
+            fill: #ffffff;
+        }
+
+        .next-hero-btn span {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        /* Navigation Grid */
+        .nav-button-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .flat-btn {
+            height: 64px;
+            background: var(--btn-neutral-bg);
+            border-radius: 20px;
+            border: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #8e8e93;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
             cursor: pointer;
+            transition: all 0.15s ease;
         }
 
-        .pill-btn:active {
-            transform: scale(0.95);
-            background: #111;
+        .flat-btn:active {
+            transform: scale(0.96);
+            background: var(--btn-neutral-active);
         }
 
-        /* 📷 Tab 2: Visualizer Camera */
-        .camera-card {
+        .flat-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-primary);
+        }
+
+        .tip-status-text {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        /* 📷 Tab 2: Visualizer Camera Card */
+        .visualizer-card {
             width: 100%;
             background: var(--card-bg);
-            border-radius: 28px;
+            border-radius: 32px;
             border: 1px solid var(--card-border);
-            padding: 16px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 16px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
         }
 
-        .preview-wrapper {
+        .camera-viewport {
             width: 100%;
             height: 240px;
-            background: #000;
-            border-radius: 20px;
+            background: #111216;
+            border-radius: 22px;
             overflow: hidden;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(255,255,255,0.1);
         }
 
         #cameraVideo {
@@ -1161,224 +1164,188 @@ namespace PPTWebBrowserAddIn
             object-fit: cover;
         }
 
-        .camera-actions {
+        .camera-action-grid {
             width: 100%;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .action-btn {
-            padding: 14px 10px;
-            border-radius: 18px;
+        .snap-hero-btn {
+            grid-column: span 2;
+            height: 60px;
+            background: var(--apple-green);
+            border-radius: 20px;
             border: none;
-            font-size: 14px;
+            color: #ffffff;
+            font-size: 16px;
             font-weight: 600;
-            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: all 0.2s ease;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 6px 20px rgba(52, 199, 89, 0.3);
         }
 
-        .action-btn:active { transform: scale(0.96); }
-        .action-btn.primary {
-            background: linear-gradient(135deg, #30d158, #248a3d);
-            color: #ffffff;
+        .snap-hero-btn:active {
+            transform: scale(0.97);
+            background: #2ebd52;
+        }
+
+        .snap-hero-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: #ffffff;
+        }
+
+        .exit-btn {
             grid-column: span 2;
-            padding: 16px;
-            font-size: 16px;
-            box-shadow: 0 4px 16px rgba(48, 209, 88, 0.4);
-        }
-        .action-btn.secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: #f5f5f7;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-        .action-btn.danger {
-            background: rgba(255, 69, 58, 0.15);
-            color: #ff453a;
-            border: 1px solid rgba(255, 69, 58, 0.3);
-            grid-column: span 2;
-        }
-
-        /* 📱 Tab 3: Screen Mirror */
-        .mirror-card {
-            width: 100%;
-            background: var(--card-bg);
-            border-radius: 28px;
-            border: 1px solid var(--card-border);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .input-box {
-            width: 100%;
-            padding: 12px 16px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 14px;
-            color: #fff;
+            height: 52px;
+            background: var(--apple-red-bg);
+            border: 1px solid rgba(255, 59, 48, 0.15);
+            border-radius: 18px;
+            color: var(--apple-red);
             font-size: 14px;
-            outline: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
 
-        .input-box:focus { border-color: var(--accent-blue); }
-
-        .tip-text {
-            font-size: 12px;
-            color: var(--text-sub);
-            line-height: 1.5;
+        .exit-btn:active {
+            transform: scale(0.97);
+            background: rgba(255, 59, 48, 0.15);
         }
     </style>
 </head>
 <body>
 
-    <!-- Top Tab Bar -->
-    <div class=""tab-bar-container"">
-        <button class=""tab-btn active"" onclick=""switchTab('remote')"">🎮 遥控</button>
-        <button class=""tab-btn"" onclick=""switchTab('camera')"">📷 实物展台</button>
-        <button class=""tab-btn"" onclick=""switchTab('mirror')"">📱 投屏</button>
-    </div>
-
-    <!-- 🎮 Tab 1: Remote Controller Pane -->
-    <div id=""pane-remote"" class=""tab-pane active"">
-        <div class=""remote-body"">
-            <div class=""led-indicator"">
-                <div id=""remoteLed"" class=""led-light""></div>
-            </div>
-
-            <div class=""remote-circle-pad"">
-                <button class=""pad-btn top"" onclick=""sendCmd('/prev')"">
-                    <svg viewBox=""0 0 24 24""><path d=""M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z""/></svg>
-                </button>
-                <button class=""pad-btn center"" onclick=""sendCmd('/next')"">
-                    <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""5""/></svg>
-                </button>
-                <button class=""pad-btn bottom"" onclick=""sendCmd('/next')"">
-                    <svg viewBox=""0 0 24 24""><path d=""M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z""/></svg>
-                </button>
-            </div>
-
-            <div class=""bottom-actions"">
-                <button class=""pill-btn"" onclick=""sendCmd('/play')"">
-                    <svg style=""width:18px;height:18px;fill:#8e8e93;"" viewBox=""0 0 24 24""><path d=""M8 5v14l11-7z""/></svg>
-                </button>
-                <button class=""pill-btn"" onclick=""sendCmd('/next')"">
-                    <svg style=""width:18px;height:18px;fill:#8e8e93;"" viewBox=""0 0 24 24""><path d=""M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z""/></svg>
-                </button>
-            </div>
+    <!-- Top Minimalist Header -->
+    <div class=""app-header"">
+        <div class=""brand-title"">YuLink</div>
+        <div class=""status-badge"">
+            <div id=""ledDot"" class=""status-dot""></div>
+            <span>已连接 PPT</span>
         </div>
     </div>
 
-    <!-- 📷 Tab 2: Visualizer Camera Pane -->
+    <!-- Apple Segmented Control Tab Switcher -->
+    <div class=""tab-bar-container"">
+        <button class=""tab-btn active"" onclick=""switchTab('remote')"">🎮 遥控翻页</button>
+        <button class=""tab-btn"" onclick=""switchTab('camera')"">📷 实物展台</button>
+    </div>
+
+    <!-- 🎮 Tab 1: Minimalist Remote Controller -->
+    <div id=""pane-remote"" class=""tab-pane active"">
+        <div class=""remote-card"">
+            
+            <!-- Large Hero Next Button -->
+            <button class=""next-hero-btn"" onclick=""sendCmd('/next')"">
+                <svg viewBox=""0 0 24 24""><path d=""M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z""/></svg>
+                <span>下一页 (Next)</span>
+            </button>
+
+            <!-- Secondary Navigation Controls -->
+            <div class=""nav-button-grid"">
+                <button class=""flat-btn"" onclick=""sendCmd('/prev')"">
+                    <svg viewBox=""0 0 24 24""><path d=""M6 6h2v12H6zm3.5 6l8.5 6V6z""/></svg>
+                    <span>上一页</span>
+                </button>
+                <button class=""flat-btn"" onclick=""sendCmd('/play')"">
+                    <svg viewBox=""0 0 24 24""><path d=""M8 5v14l11-7z""/></svg>
+                    <span>播放 / 暂停</span>
+                </button>
+            </div>
+
+            <div class=""tip-status-text"">点击按键伴随触感震动反馈</div>
+        </div>
+    </div>
+
+    <!-- 📷 Tab 2: Minimalist Visualizer Camera -->
     <div id=""pane-camera"" class=""tab-pane"">
-        <div class=""camera-card"">
-            <div class=""preview-wrapper"">
+        <div class=""visualizer-card"">
+            
+            <div class=""camera-viewport"">
                 <video id=""cameraVideo"" autoplay playsinline muted></video>
                 <canvas id=""captureCanvas"" style=""display:none;""></canvas>
             </div>
 
-            <div class=""camera-actions"">
-                <button class=""action-btn primary"" onclick=""snapAndCast()"">
-                    📸 拍照并投屏讲评
+            <div class=""camera-action-grid"">
+                <!-- Hero Snap Button -->
+                <button class=""snap-hero-btn"" onclick=""snapAndCast()"">
+                    <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
+                    <span>📸 拍照并投屏讲评</span>
                 </button>
-                <button id=""btnStream"" class=""action-btn secondary"" onclick=""toggleLiveStream()"">
-                    🎥 开启实时展台
+
+                <button class=""flat-btn"" onclick=""switchCamera()"">
+                    <span>🔄 翻转镜头</span>
                 </button>
-                <button class=""action-btn secondary"" onclick=""switchCamera()"">
-                    🔄 翻转镜头
+                <button id=""btnStream"" class=""flat-btn"" onclick=""toggleLiveStream()"">
+                    <span>🎥 实时展台</span>
                 </button>
-                <button class=""action-btn secondary"" onclick=""rotateScreen()"">
-                    🔃 大屏旋转90°
+                <button class=""flat-btn"" onclick=""rotateScreen()"">
+                    <span>🔃 大屏旋转90°</span>
                 </button>
-                <button class=""action-btn secondary"" onclick=""toggleTorch()"">
-                    💡 补光灯
+                <button class=""flat-btn"" onclick=""toggleTorch()"">
+                    <span>💡 补光灯</span>
                 </button>
-                <button class=""action-btn danger"" onclick=""stopVisualizer()"">
-                    ⏹️ 退出展台 · 恢复幻灯片
+
+                <button class=""exit-btn"" onclick=""stopVisualizer()"">
+                    <span>⏹️ 退出展台 · 恢复幻灯片</span>
                 </button>
             </div>
-        </div>
-    </div>
 
-    <!-- 📱 Tab 3: Screen Mirror Pane -->
-    <div id=""pane-mirror"" class=""tab-pane"">
-        <div class=""mirror-card"">
-            <div style=""font-size: 15px; font-weight: 600;"">📱 手机屏幕镜像</div>
-            
-            <div class=""tip-text"">
-                <b>安卓一键投屏推荐：</b><br>
-                1. 手机打开开源无广告 <b>ScreenStream</b> App 并开启推流；<br>
-                2. 输入下方地址并点击连接，PPT 将同屏镜像手机全屏。
-            </div>
-
-            <input id=""mirrorUrlInput"" class=""input-box"" type=""text"" placeholder=""http://192.168.x.x:8080"" />
-
-            <button class=""action-btn primary"" style=""grid-column: span 1;"" onclick=""startMirror()"">
-                🚀 连接并投屏到 PPT
-            </button>
-
-            <button class=""action-btn secondary"" onclick=""tryWebShare()"">
-                🌐 尝试网页直接投屏
-            </button>
-
-            <button class=""action-btn danger"" onclick=""stopVisualizer()"">
-                ⏹️ 退出投屏 · 恢复幻灯片
-            </button>
         </div>
     </div>
 
     <script>
-        // Haptic feedback helper
+        // Haptic feedback
         function vibrate() {
-            if (navigator.vibrate) navigator.vibrate(25);
+            if (navigator.vibrate) navigator.vibrate(20);
         }
 
         // Tab Switcher
         function switchTab(name) {
             vibrate();
-            document.querySelectorAll('.tab-btn').forEach((b, i) => {
-                b.classList.remove('active');
-            });
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
             if (name === 'remote') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                btns[0].classList.add('active');
                 document.getElementById('pane-remote').classList.add('active');
             } else if (name === 'camera') {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                btns[1].classList.add('active');
                 document.getElementById('pane-camera').classList.add('active');
                 startCamera();
-            } else if (name === 'mirror') {
-                document.querySelectorAll('.tab-btn')[2].classList.add('active');
-                document.getElementById('pane-mirror').classList.add('active');
             }
         }
 
         // Remote command sender
         async function sendCmd(path) {
             vibrate();
-            const led = document.getElementById('remoteLed');
+            const led = document.getElementById('ledDot');
             if (led) {
-                led.style.backgroundColor = '#ff9500';
-                led.style.boxShadow = '0 0 10px #ff9500';
+                led.style.backgroundColor = '#0071e3';
+                led.style.boxShadow = '0 0 8px #0071e3';
             }
             try {
                 await fetch(path);
             } catch (e) {}
             setTimeout(() => {
                 if (led) {
-                    led.style.backgroundColor = 'var(--accent-green)';
-                    led.style.boxShadow = '0 0 8px var(--accent-green)';
+                    led.style.backgroundColor = 'var(--apple-green)';
+                    led.style.boxShadow = '0 0 6px var(--apple-green)';
                 }
-            }, 200);
+            }, 180);
         }
 
-        // Camera Visualizer Logic
+        // Camera Visualizer
         let mediaStream = null;
         let currentFacingMode = 'environment';
         let isStreaming = false;
@@ -1401,7 +1368,7 @@ namespace PPTWebBrowserAddIn
                 });
                 video.srcObject = mediaStream;
             } catch (e) {
-                alert('无法调用手机摄像头，请确保在浏览器设置中授予了相机权限。\n错误: ' + e.message);
+                alert('无法调用手机摄像头，请在浏览器权限设置中允许使用相机。');
             }
         }
 
@@ -1420,7 +1387,7 @@ namespace PPTWebBrowserAddIn
                     torchOn = !torchOn;
                     await track.applyConstraints({ advanced: [{ torch: torchOn }] });
                 } else {
-                    alert('当前摄像头不支持或未开启手电筒功能。');
+                    alert('当前摄像头不支持闪光灯。');
                 }
             }
         }
@@ -1441,7 +1408,7 @@ namespace PPTWebBrowserAddIn
                     body: JSON.stringify({ image: base64 })
                 });
                 if (res.ok) {
-                    alert('📸 照片已秒级投射到 PPT 大屏！可在屏幕上使用画笔直接圈画批改。');
+                    alert('📸 照片已投射到 PPT 大屏！可在屏幕上使用画笔直接圈画批改。');
                 }
             } catch (e) {
                 alert('上传照片失败: ' + e.message);
@@ -1453,12 +1420,14 @@ namespace PPTWebBrowserAddIn
             const btn = document.getElementById('btnStream');
             isStreaming = !isStreaming;
             if (isStreaming) {
-                btn.innerText = '⏹️ 停止实时直播';
-                btn.style.background = '#ff453a';
+                btn.querySelector('span').innerText = '⏹️ 停止直播';
+                btn.style.background = '#ffe5e5';
+                btn.style.color = '#ff3b30';
                 sendLiveFrame();
             } else {
-                btn.innerText = '🎥 开启实时展台';
-                btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                btn.querySelector('span').innerText = '🎥 实时展台';
+                btn.style.background = 'var(--btn-neutral-bg)';
+                btn.style.color = 'var(--text-primary)';
                 if (streamTimer) clearTimeout(streamTimer);
             }
         }
@@ -1498,44 +1467,6 @@ namespace PPTWebBrowserAddIn
             try {
                 await fetch('/api/stop_cast', { method: 'POST' });
             } catch (e) {}
-        }
-
-        // Screen Mirror
-        async function startMirror() {
-            vibrate();
-            let url = document.getElementById('mirrorUrlInput').value.trim();
-            if (!url) {
-                alert('请输入手机推流地址 (如 http://192.168.1.x:8080)');
-                return;
-            }
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                url = 'http://' + url;
-            }
-            try {
-                await fetch('/api/start_mirror', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: url })
-                });
-                alert('🚀 正在连接投屏并在 PPT 页面呈现！');
-            } catch (e) {
-                alert('连接投屏失败: ' + e.message);
-            }
-        }
-
-        async function tryWebShare() {
-            if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-                try {
-                    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                    video.srcObject = stream;
-                    switchTab('camera');
-                    toggleLiveStream();
-                } catch (e) {
-                    alert('屏幕共享已取消或不受支持: ' + e.message);
-                }
-            } else {
-                alert('当前手机浏览器不支持原生 getDisplayMedia，请使用 ScreenStream 或拍照展台模式。');
-            }
         }
     </script>
 </body>
