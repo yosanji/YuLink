@@ -29,6 +29,20 @@ namespace PPTWebBrowserAddIn
         private string _tempUserDataFolder;
 
         private Panel addressPanel;
+        private bool _isHeaderDragging = false;
+        private Point _headerDragStart;
+        private Point _formDragStartLoc;
+
+        // Interactive Edge & Corner Resizing Elements
+        private Panel _resizeGripBR;
+        private Panel _borderRight;
+        private Panel _borderBottom;
+        private Panel _borderLeft;
+        private bool _isBorderResizing = false;
+        private int _resizeMode = 0; // 1: Right, 2: Bottom, 3: BottomRight, 4: Left
+        private Point _resizingStartMouse;
+        private Size _resizingStartSize;
+        private Point _resizingStartLoc;
         private Button btnLiquidGlass; // The red traffic light button, triggers the toolkit drawer
         
         // Toolkit Drawer variables
@@ -81,32 +95,20 @@ namespace PPTWebBrowserAddIn
             try
             {
                 int formWidth = this.ClientSize.Width;
+                int formHeight = this.ClientSize.Height;
 
                 // Adjust right-aligned buttons location dynamically (Zoom In, Zoom Out, Share, Ink)
-                if (_btnZoomIn != null)
-                {
-                    _btnZoomIn.Location = new Point(formWidth - 36, 10);
-                }
-                if (_btnZoomOut != null)
-                {
-                    _btnZoomOut.Location = new Point(formWidth - 66, 10);
-                }
-                if (_btnShare != null)
-                {
-                    _btnShare.Location = new Point(formWidth - 96, 10);
-                }
-                if (_btnInk != null)
-                {
-                    _btnInk.Location = new Point(formWidth - 126, 10);
-                }
+                if (_btnZoomIn != null) _btnZoomIn.Location = new Point(formWidth - 36, 10);
+                if (_btnZoomOut != null) _btnZoomOut.Location = new Point(formWidth - 66, 10);
+                if (_btnShare != null) _btnShare.Location = new Point(formWidth - 96, 10);
+                if (_btnInk != null) _btnInk.Location = new Point(formWidth - 126, 10);
 
-                // Adjust address bar panel location & width (leaving space for 4 right-aligned buttons)
+                // Adjust address bar panel location & width
                 if (addressPanel != null)
                 {
                     addressPanel.Location = new Point(146, 8);
-                    addressPanel.Width = formWidth - 146 - 140;
+                    addressPanel.Width = Math.Max(100, formWidth - 146 - 140);
 
-                    // Reapply rounded region
                     var path = new System.Drawing.Drawing2D.GraphicsPath();
                     int r = 8;
                     path.AddArc(0, 0, r, r, 180, 90);
@@ -137,6 +139,36 @@ namespace PPTWebBrowserAddIn
                     if (_btnInk != null) _btnInk.Location = new Point(startX, 4);
                     if (_btnScreenshot != null) _btnScreenshot.Location = new Point(startX + buttonWidth + spacing, 4);
                     if (_btnShare != null) _btnShare.Location = new Point(startX + (buttonWidth + spacing) * 2, 4);
+                }
+
+                // Position Resize Grip and Border Strips (visible only when not maximized)
+                bool showBorders = !this.IsMaximized;
+                if (_resizeGripBR != null)
+                {
+                    _resizeGripBR.Visible = showBorders;
+                    _resizeGripBR.Location = new Point(formWidth - 22, formHeight - 22);
+                    _resizeGripBR.BringToFront();
+                }
+                if (_borderRight != null)
+                {
+                    _borderRight.Visible = showBorders;
+                    _borderRight.Location = new Point(formWidth - 6, 44);
+                    _borderRight.Size = new Size(6, Math.Max(0, formHeight - 44 - 22));
+                    _borderRight.BringToFront();
+                }
+                if (_borderBottom != null)
+                {
+                    _borderBottom.Visible = showBorders;
+                    _borderBottom.Location = new Point(0, formHeight - 6);
+                    _borderBottom.Size = new Size(Math.Max(0, formWidth - 22), 6);
+                    _borderBottom.BringToFront();
+                }
+                if (_borderLeft != null)
+                {
+                    _borderLeft.Visible = showBorders;
+                    _borderLeft.Location = new Point(0, 44);
+                    _borderLeft.Size = new Size(6, Math.Max(0, formHeight - 44 - 6));
+                    _borderLeft.BringToFront();
                 }
             }
             catch { }
@@ -951,20 +983,36 @@ namespace PPTWebBrowserAddIn
         {
             try
             {
-                // Create navigation panel (Safari-like top bar)
+                // Create navigation panel (Safari macOS Top Bar)
                 _navPanel = new Panel();
-                _navPanel.Height = 44; // Touch-friendly Apple height
+                _navPanel.Height = 44;
                 _navPanel.Dock = DockStyle.Top;
                 _navPanel.BackColor = Color.FromArgb(246, 246, 246);
                 _navPanel.Padding = new Padding(5);
+
+                // Smooth Window Dragging & Double-Click Maximize on NavPanel
                 _navPanel.MouseDown += (s, e) => {
                     if (e.Button == MouseButtons.Left && !this.IsMaximized) {
+                        _isHeaderDragging = true;
+                        _headerDragStart = Cursor.Position;
+                        _formDragStartLoc = this.Location;
                         ReleaseCapture();
-                        SendMessage(this.Handle, 0xA1, 0x2, 0); // HTCAPTION drag
+                        SendMessage(this.Handle, 0x00A1, 2, 0); // HTCAPTION Win32 Drag
                     }
                 };
+                _navPanel.MouseMove += (s, e) => {
+                    if (_isHeaderDragging && !this.IsMaximized && (Control.MouseButtons & MouseButtons.Left) != 0) {
+                        Point cur = Cursor.Position;
+                        this.Location = new Point(_formDragStartLoc.X + (cur.X - _headerDragStart.X), _formDragStartLoc.Y + (cur.Y - _headerDragStart.Y));
+                    } else {
+                        _isHeaderDragging = false;
+                    }
+                };
+                _navPanel.MouseUp += (s, e) => { _isHeaderDragging = false; };
+                _navPanel.DoubleClick += (s, e) => { this.ToggleMaximize(); };
+
                 _navPanel.Paint += (s, e) => {
-                    using (var pen = new Pen(Color.FromArgb(210, 210, 215), 1))
+                    using (var pen = new Pen(Color.FromArgb(218, 218, 222), 1))
                     {
                         e.Graphics.DrawLine(pen, 0, _navPanel.Height - 1, _navPanel.Width, _navPanel.Height - 1);
                     }
@@ -973,17 +1021,116 @@ namespace PPTWebBrowserAddIn
                 _toolTip = new ToolTip();
                 var toolTip = _toolTip;
 
-                // btnLiquidGlass (Red macOS Traffic Light close button)
+                // =========================================================================
+                // 🍎 Exquisite, High-Precision macOS Sonoma/Sequoia Traffic Light Dots
+                // =========================================================================
+                bool isTrafficHovered = false;
+
+                // Red Close Button (macOS #FF5F56)
                 btnLiquidGlass = new Button();
-                btnLiquidGlass.Size = new Size(15, 15);
-                btnLiquidGlass.Location = new Point(16, 14);
+                btnLiquidGlass.Size = new Size(20, 20);
+                btnLiquidGlass.Location = new Point(14, 12);
                 btnLiquidGlass.FlatStyle = FlatStyle.Flat;
                 btnLiquidGlass.FlatAppearance.BorderSize = 0;
-                btnLiquidGlass.BackColor = Color.FromArgb(255, 95, 86);
+                btnLiquidGlass.BackColor = Color.Transparent;
                 btnLiquidGlass.Cursor = Cursors.Hand;
-                MakeCircular(btnLiquidGlass);
                 btnLiquidGlass.Click += (s, e) => { this.Close(); };
                 btnLiquidGlass.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.Close(); };
+                btnLiquidGlass.MouseEnter += (s, e) => { isTrafficHovered = true; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
+                btnLiquidGlass.MouseLeave += (s, e) => { isTrafficHovered = false; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
+                btnLiquidGlass.Paint += (s, e) => {
+                    var g = e.Graphics;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                    Rectangle circleRect = new Rectangle(4, 4, 12, 12);
+                    using (var brush = new SolidBrush(Color.FromArgb(255, 95, 86)))
+                    {
+                        g.FillEllipse(brush, circleRect);
+                    }
+                    using (var pen = new Pen(Color.FromArgb(224, 68, 62), 1f))
+                    {
+                        g.DrawEllipse(pen, circleRect);
+                    }
+                    if (isTrafficHovered)
+                    {
+                        using (var symbolPen = new Pen(Color.FromArgb(77, 0, 0), 1.2f))
+                        {
+                            g.DrawLine(symbolPen, 7, 7, 13, 13);
+                            g.DrawLine(symbolPen, 13, 7, 7, 13);
+                        }
+                    }
+                };
+
+                // Yellow Minimize Button (macOS #FFBD2E)
+                _btnRefresh = new Button();
+                _btnRefresh.Size = new Size(20, 20);
+                _btnRefresh.Location = new Point(36, 12);
+                _btnRefresh.FlatStyle = FlatStyle.Flat;
+                _btnRefresh.FlatAppearance.BorderSize = 0;
+                _btnRefresh.BackColor = Color.Transparent;
+                _btnRefresh.Cursor = Cursors.Hand;
+                _btnRefresh.Click += (s, e) => { this.MinimizeWindow(); };
+                _btnRefresh.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.MinimizeWindow(); };
+                _btnRefresh.MouseEnter += (s, e) => { isTrafficHovered = true; btnLiquidGlass.Invalidate(); _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
+                _btnRefresh.MouseLeave += (s, e) => { isTrafficHovered = false; btnLiquidGlass.Invalidate(); _btnRefresh.Invalidate(); if (_btnFullScreen != null) _btnFullScreen.Invalidate(); };
+                _btnRefresh.Paint += (s, e) => {
+                    var g = e.Graphics;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                    Rectangle circleRect = new Rectangle(4, 4, 12, 12);
+                    using (var brush = new SolidBrush(Color.FromArgb(255, 189, 46)))
+                    {
+                        g.FillEllipse(brush, circleRect);
+                    }
+                    using (var pen = new Pen(Color.FromArgb(222, 161, 35), 1f))
+                    {
+                        g.DrawEllipse(pen, circleRect);
+                    }
+                    if (isTrafficHovered)
+                    {
+                        using (var symbolPen = new Pen(Color.FromArgb(92, 64, 0), 1.2f))
+                        {
+                            g.DrawLine(symbolPen, 7, 10, 13, 10);
+                        }
+                    }
+                };
+
+                // Green Fullscreen / Maximize Button (macOS #27C93F)
+                _btnFullScreen = new Button();
+                _btnFullScreen.Size = new Size(20, 20);
+                _btnFullScreen.Location = new Point(58, 12);
+                _btnFullScreen.FlatStyle = FlatStyle.Flat;
+                _btnFullScreen.FlatAppearance.BorderSize = 0;
+                _btnFullScreen.BackColor = Color.Transparent;
+                _btnFullScreen.Cursor = Cursors.Hand;
+                _btnFullScreen.Click += (s, e) => { this.ToggleMaximize(); };
+                _btnFullScreen.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.ToggleMaximize(); };
+                _btnFullScreen.MouseEnter += (s, e) => { isTrafficHovered = true; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); _btnFullScreen.Invalidate(); };
+                _btnFullScreen.MouseLeave += (s, e) => { isTrafficHovered = false; btnLiquidGlass.Invalidate(); if (_btnRefresh != null) _btnRefresh.Invalidate(); _btnFullScreen.Invalidate(); };
+                _btnFullScreen.Paint += (s, e) => {
+                    var g = e.Graphics;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                    Rectangle circleRect = new Rectangle(4, 4, 12, 12);
+                    using (var brush = new SolidBrush(Color.FromArgb(39, 201, 63)))
+                    {
+                        g.FillEllipse(brush, circleRect);
+                    }
+                    using (var pen = new Pen(Color.FromArgb(26, 171, 41), 1f))
+                    {
+                        g.DrawEllipse(pen, circleRect);
+                    }
+                    if (isTrafficHovered)
+                    {
+                        using (var symbolBrush = new SolidBrush(Color.FromArgb(0, 77, 26)))
+                        {
+                            Point[] poly1 = new Point[] { new Point(7, 7), new Point(10, 7), new Point(7, 10) };
+                            Point[] poly2 = new Point[] { new Point(13, 13), new Point(10, 13), new Point(13, 10) };
+                            g.FillPolygon(symbolBrush, poly1);
+                            g.FillPolygon(symbolBrush, poly2);
+                        }
+                    }
+                };
 
                 // Create Ink button
                 _btnInk = new Button();
@@ -1028,30 +1175,6 @@ namespace PPTWebBrowserAddIn
                         }
                     }
                 };
-
-                // Yellow Minimize Button (macOS Traffic Light)
-                _btnRefresh = new Button();
-                _btnRefresh.Size = new Size(15, 15);
-                _btnRefresh.Location = new Point(38, 14);
-                _btnRefresh.FlatStyle = FlatStyle.Flat;
-                _btnRefresh.FlatAppearance.BorderSize = 0;
-                _btnRefresh.BackColor = Color.FromArgb(254, 188, 44);
-                _btnRefresh.Cursor = Cursors.Hand;
-                MakeCircular(_btnRefresh);
-                _btnRefresh.Click += (s, e) => { this.MinimizeWindow(); };
-                _btnRefresh.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.MinimizeWindow(); };
-
-                // Green Fullscreen Button (macOS Traffic Light)
-                _btnFullScreen = new Button();
-                _btnFullScreen.Size = new Size(15, 15);
-                _btnFullScreen.Location = new Point(60, 14);
-                _btnFullScreen.FlatStyle = FlatStyle.Flat;
-                _btnFullScreen.FlatAppearance.BorderSize = 0;
-                _btnFullScreen.BackColor = Color.FromArgb(39, 201, 63);
-                _btnFullScreen.Cursor = Cursors.Hand;
-                MakeCircular(_btnFullScreen);
-                _btnFullScreen.Click += (s, e) => { this.ToggleMaximize(); };
-                _btnFullScreen.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) this.ToggleMaximize(); };
 
                 toolTip.SetToolTip(btnLiquidGlass, "关闭 (Close)");
                 toolTip.SetToolTip(_btnRefresh, "最小化 (Minimize)");
@@ -1192,6 +1315,93 @@ namespace PPTWebBrowserAddIn
                 _webView = new WebView2();
                 _webView.Dock = DockStyle.Fill;
                 this.Controls.Add(_webView);
+
+                // Create Interactive Edge & Corner Resize Controls
+                _resizeGripBR = new Panel();
+                _resizeGripBR.Size = new Size(22, 22);
+                _resizeGripBR.BackColor = Color.Transparent;
+                _resizeGripBR.Cursor = Cursors.SizeNWSE;
+                _resizeGripBR.Paint += (s, e) => {
+                    var g = e.Graphics;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using (var p = new Pen(Color.FromArgb(140, 140, 145), 1.5f))
+                    {
+                        g.DrawLine(p, 16, 6, 6, 16);
+                        g.DrawLine(p, 16, 10, 10, 16);
+                        g.DrawLine(p, 16, 14, 14, 16);
+                    }
+                };
+                
+                Action<int, MouseEventArgs> startResize = (mode, e) => {
+                    if (e.Button == MouseButtons.Left && !this.IsMaximized) {
+                        _isBorderResizing = true;
+                        _resizeMode = mode;
+                        _resizingStartMouse = Cursor.Position;
+                        _resizingStartSize = this.Size;
+                        _resizingStartLoc = this.Location;
+                    }
+                };
+
+                Action handleResizeMove = () => {
+                    if (_isBorderResizing && !this.IsMaximized && (Control.MouseButtons & MouseButtons.Left) != 0) {
+                        Point cur = Cursor.Position;
+                        int dx = cur.X - _resizingStartMouse.X;
+                        int dy = cur.Y - _resizingStartMouse.Y;
+
+                        if (_resizeMode == 3) { // Bottom-Right Corner
+                            int nw = Math.Max(420, _resizingStartSize.Width + dx);
+                            int nh = Math.Max(260, _resizingStartSize.Height + dy);
+                            this.Size = new Size(nw, nh);
+                        } else if (_resizeMode == 1) { // Right Edge
+                            int nw = Math.Max(420, _resizingStartSize.Width + dx);
+                            this.Width = nw;
+                        } else if (_resizeMode == 2) { // Bottom Edge
+                            int nh = Math.Max(260, _resizingStartSize.Height + dy);
+                            this.Height = nh;
+                        } else if (_resizeMode == 4) { // Left Edge
+                            int nw = Math.Max(420, _resizingStartSize.Width - dx);
+                            int nx = _resizingStartLoc.X + (_resizingStartSize.Width - nw);
+                            this.Location = new Point(nx, this.Location.Y);
+                            this.Width = nw;
+                        }
+                    } else {
+                        _isBorderResizing = false;
+                    }
+                };
+
+                _resizeGripBR.MouseDown += (s, e) => startResize(3, e);
+                _resizeGripBR.MouseMove += (s, e) => handleResizeMove();
+                _resizeGripBR.MouseUp += (s, e) => { _isBorderResizing = false; };
+
+                _borderRight = new Panel();
+                _borderRight.BackColor = Color.Transparent;
+                _borderRight.Cursor = Cursors.SizeWE;
+                _borderRight.MouseDown += (s, e) => startResize(1, e);
+                _borderRight.MouseMove += (s, e) => handleResizeMove();
+                _borderRight.MouseUp += (s, e) => { _isBorderResizing = false; };
+
+                _borderBottom = new Panel();
+                _borderBottom.BackColor = Color.Transparent;
+                _borderBottom.Cursor = Cursors.SizeNS;
+                _borderBottom.MouseDown += (s, e) => startResize(2, e);
+                _borderBottom.MouseMove += (s, e) => handleResizeMove();
+                _borderBottom.MouseUp += (s, e) => { _isBorderResizing = false; };
+
+                _borderLeft = new Panel();
+                _borderLeft.BackColor = Color.Transparent;
+                _borderLeft.Cursor = Cursors.SizeWE;
+                _borderLeft.MouseDown += (s, e) => startResize(4, e);
+                _borderLeft.MouseMove += (s, e) => handleResizeMove();
+                _borderLeft.MouseUp += (s, e) => { _isBorderResizing = false; };
+
+                this.Controls.Add(_resizeGripBR);
+                this.Controls.Add(_borderRight);
+                this.Controls.Add(_borderBottom);
+                this.Controls.Add(_borderLeft);
+                _resizeGripBR.BringToFront();
+                _borderRight.BringToFront();
+                _borderBottom.BringToFront();
+                _borderLeft.BringToFront();
                 _webView.BringToFront(); // Ensure it docks correctly below top panel
 
                 // Call layouts initialization once
