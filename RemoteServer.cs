@@ -845,7 +845,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
-        // With Full Interactive Drag/Pan, Mouse-wheel Zoom & Touch Gesture Support
+        // Clean Minimal UI + Flawless Pointer-Capture Drag & Independent Pan/Rotation
         // =========================================================================
         private string GetCastViewHtml()
         {
@@ -854,74 +854,63 @@ namespace PPTWebBrowserAddIn
 <head>
     <meta charset=""utf-8"">
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"">
-    <title>YuLink 无线展台 · 大屏接收端</title>
+    <title>YuLink 展台</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         body {
-            background-color: #0c0d10;
+            background-color: #000000;
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+        }
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
             display: flex;
             align-items: center;
             justify-content: center;
+            touch-action: none;
         }
-        #viewContainer {
+        #viewport.dragging {
+            cursor: grabbing;
+        }
+        #panLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
             width: 100%;
             height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-            background: radial-gradient(circle at 50% 50%, #1a1c22 0%, #090a0d 100%);
-            overflow: hidden;
-            touch-action: none;
+            will-change: transform;
+            pointer-events: none;
+        }
+        #rotateScaleLayer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            will-change: transform;
+            pointer-events: none;
         }
         #castImage {
             max-width: 96vw;
             max-height: 94vh;
             object-fit: contain;
-            border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-            cursor: grab;
-            transform-origin: center center;
-            will-change: transform;
-            transition: box-shadow 0.2s ease;
-        }
-        #castImage:active {
-            cursor: grabbing;
-        }
-        .hud-header {
-            position: absolute;
-            top: 20px;
-            left: 24px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 18px;
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 20px;
-            z-index: 100;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9);
             pointer-events: none;
+            -webkit-user-drag: none;
         }
-        .hud-dot {
-            width: 8px;
-            height: 8px;
-            background: #34c759;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #34c759;
-        }
-        .hud-title { font-size: 13px; font-weight: 600; color: #1d1d1f; letter-spacing: -0.2px; }
-        
         .hud-tools {
             position: absolute;
-            top: 20px;
-            right: 24px;
+            top: 18px;
+            right: 20px;
             display: flex;
             gap: 8px;
             z-index: 100;
@@ -930,57 +919,51 @@ namespace PPTWebBrowserAddIn
             background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.1);
             color: #1d1d1f;
-            padding: 8px 15px;
-            border-radius: 18px;
+            padding: 7px 14px;
+            border-radius: 16px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease;
         }
-        .hud-btn:hover { background: #ffffff; transform: scale(1.03); }
+        .hud-btn:active { transform: scale(0.96); }
         .hud-btn.close { color: #ff3b30; }
-        .hud-btn.close:hover { background: #ff3b30; color: #ffffff; }
+        .hud-btn.close:active { background: #ff3b30; color: #fff; }
         
         .empty-hint {
-            text-align: center;
             color: #8e8e93;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             pointer-events: none;
         }
-        .empty-hint svg { width: 56px; height: 56px; fill: #636366; }
+        .empty-hint svg { width: 48px; height: 48px; fill: #636366; }
     </style>
 </head>
 <body>
-    <div id=""viewContainer"">
-        <div class=""hud-header"">
-            <div class=""hud-dot""></div>
-            <div class=""hud-title"" id=""castStatus"">YuLink 无线展台 · 等待手机拍照投屏</div>
-        </div>
-
+    <div id=""viewport"">
         <div class=""hud-tools"">
             <button class=""hud-btn"" onclick=""zoomIn()"">放大</button>
             <button class=""hud-btn"" onclick=""zoomOut()"">缩小</button>
-            <button class=""hud-btn"" onclick=""resetView()"">适应屏幕</button>
-            <button class=""hud-btn"" onclick=""rotateImage()"">旋转 90°</button>
-            <button class=""hud-btn close"" onclick=""stopCast()"">退出展台</button>
+            <button class=""hud-btn"" onclick=""resetView()"">复位</button>
+            <button class=""hud-btn"" onclick=""rotateImage()"">旋转</button>
+            <button class=""hud-btn close"" onclick=""stopCast()"">退出</button>
         </div>
 
         <div id=""emptyState"" class=""empty-hint"">
             <svg viewBox=""0 0 24 24""><path d=""M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z""/></svg>
-            <div style=""font-size: 16px; font-weight: 600; color: #f5f5f7;"">请使用手机在【实物展台】中拍照投屏</div>
-            <div style=""font-size: 13px; color: #8e8e93;"">照片原图无损传输 · 滚轮缩放 · 鼠标或触摸屏自由拖拽平移</div>
+            <div style=""font-size: 15px; font-weight: 600;"">等待拍照</div>
         </div>
 
-        <img id=""castImage"" style=""display: none;"" alt=""Cast Preview"" />
+        <div id=""panLayer"">
+            <div id=""rotateScaleLayer"">
+                <img id=""castImage"" style=""display: none;"" alt=""Cast Preview"" />
+            </div>
+        </div>
     </div>
 
     <script>
@@ -989,23 +972,26 @@ namespace PPTWebBrowserAddIn
         let currentScale = 1.0;
         let posX = 0;
         let posY = 0;
-        let isDragging = false;
-        let startX = 0;
-        let startY = 0;
 
-        const container = document.getElementById('viewContainer');
+        const viewport = document.getElementById('viewport');
+        const panLayer = document.getElementById('panLayer');
+        const rotateScaleLayer = document.getElementById('rotateScaleLayer');
         const img = document.getElementById('castImage');
         const emptyState = document.getElementById('emptyState');
-        const statusEl = document.getElementById('castStatus');
+
+        function updatePan() {
+            panLayer.style.transform = 'translate3d(' + posX + 'px, ' + posY + 'px, 0)';
+        }
 
         function updateTransform() {
-            img.style.transform = 'translate(' + posX + 'px, ' + posY + 'px) rotate(' + currentRotation + 'deg) scale(' + currentScale + ')';
+            rotateScaleLayer.style.transform = 'rotate(' + currentRotation + 'deg) scale(' + currentScale + ')';
         }
 
         function resetView() {
             currentScale = 1.0;
             posX = 0;
             posY = 0;
+            updatePan();
             updateTransform();
         }
 
@@ -1028,51 +1014,58 @@ namespace PPTWebBrowserAddIn
             fetch('/api/stop_cast', { method: 'POST' });
         }
 
-        // ==========================================
-        // Interactive Mouse Drag & Touch Pan/Zoom
-        // ==========================================
-        container.addEventListener('mousedown', (e) => {
+        // =========================================================================
+        // Native-feeling Pointer Drag (Press to Drag -> Release to Stop)
+        // =========================================================================
+        let isDown = false;
+        let startX = 0;
+        let startY = 0;
+        let initialDist = 0;
+        let initialScale = 1;
+
+        viewport.addEventListener('pointerdown', (e) => {
             if (e.target.tagName === 'BUTTON') return;
-            isDragging = true;
+            e.preventDefault();
+            isDown = true;
+            viewport.classList.add('dragging');
+            viewport.setPointerCapture(e.pointerId);
             startX = e.clientX - posX;
             startY = e.clientY - posY;
-            img.style.transition = 'none';
         });
 
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
+        viewport.addEventListener('pointermove', (e) => {
+            if (!isDown) return;
             posX = e.clientX - startX;
             posY = e.clientY - startY;
-            updateTransform();
+            updatePan();
         });
 
-        window.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                img.style.transition = 'transform 0.1s ease-out';
+        viewport.addEventListener('pointerup', (e) => {
+            if (isDown) {
+                isDown = false;
+                viewport.classList.remove('dragging');
+                try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
             }
         });
 
+        viewport.addEventListener('pointercancel', (e) => {
+            isDown = false;
+            viewport.classList.remove('dragging');
+        });
+
         // Mouse Wheel Zoom
-        container.addEventListener('wheel', (e) => {
+        viewport.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = e.deltaY < 0 ? 1.15 : 0.85;
             currentScale = Math.max(0.4, Math.min(6.0, currentScale * delta));
             updateTransform();
         }, { passive: false });
 
-        // Touch gestures (Pinch to Zoom & Pan on interactive screens)
-        let initialDistance = 0;
-        let initialScale = 1;
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                isDragging = true;
-                startX = e.touches[0].clientX - posX;
-                startY = e.touches[0].clientY - posY;
-                img.style.transition = 'none';
-            } else if (e.touches.length === 2) {
-                isDragging = false;
-                initialDistance = Math.hypot(
+        // Touch Pinch-to-Zoom on Interactive Smartboards
+        viewport.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                isDown = false;
+                initialDist = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
                 );
@@ -1080,29 +1073,22 @@ namespace PPTWebBrowserAddIn
             }
         }, { passive: true });
 
-        container.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1 && isDragging) {
-                posX = e.touches[0].clientX - startX;
-                posY = e.touches[0].clientY - startY;
-                updateTransform();
-            } else if (e.touches.length === 2) {
+        viewport.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && initialDist > 0) {
                 const dist = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
                 );
-                if (initialDistance > 0) {
-                    currentScale = Math.max(0.4, Math.min(6.0, initialScale * (dist / initialDistance)));
-                    updateTransform();
-                }
+                currentScale = Math.max(0.4, Math.min(6.0, initialScale * (dist / initialDist)));
+                updateTransform();
             }
         }, { passive: true });
 
-        container.addEventListener('touchend', () => {
-            isDragging = false;
-            initialDistance = 0;
-            img.style.transition = 'transform 0.1s ease-out';
+        viewport.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) initialDist = 0;
         });
 
+        // Polling Cast Updates
         async function pollCastData() {
             try {
                 const res = await fetch('/api/get_cast_data');
@@ -1111,7 +1097,6 @@ namespace PPTWebBrowserAddIn
                     if (data.mode === 'none') {
                         emptyState.style.display = 'flex';
                         img.style.display = 'none';
-                        statusEl.innerText = 'YuLink 无线展台 · 等待手机拍照投屏';
                     } else if (data.image && data.version !== currentVersion) {
                         currentVersion = data.version;
                         currentRotation = data.rotation || 0;
@@ -1119,7 +1104,6 @@ namespace PPTWebBrowserAddIn
                         img.src = data.image;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
-                        statusEl.innerText = '实物作业拍照讲评 (可自由拖拽、滚轮缩放、画笔批改)';
                     } else if (data.rotation !== currentRotation) {
                         currentRotation = data.rotation;
                         updateTransform();
@@ -1136,8 +1120,8 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Pure Minimalist Modern Apple Pro Web Controller HTML (Zero Emoji, Clean Vectors)
-        // With High-Precision Real-time Audio Volume & 100% Lossless Raw Photo Upload
+        // High-End Skeuomorphic Tactile Mobile Controller HTML
+        // Realistic Hardware Buttons, Inset Bevels, Dynamic Pressed Physics
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -1146,23 +1130,34 @@ namespace PPTWebBrowserAddIn
 <head>
     <meta charset=""utf-8"">
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"">
-    <title>YuLink 控制中心</title>
+    <title>YuLink 控制台</title>
     <style>
         :root {
-            --bg-page: #f2f2f7;
-            --card-bg: #ffffff;
-            --card-border: rgba(0, 0, 0, 0.05);
-            --card-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
-            --text-primary: #1d1d1f;
-            --text-secondary: #8e8e93;
-            --btn-neutral-bg: #f2f2f7;
-            --btn-neutral-active: #e5e5ea;
-            --apple-blue: #0071e3;
-            --apple-blue-active: #0062c4;
-            --apple-green: #34c759;
-            --apple-green-active: #2ebd52;
-            --apple-red: #ff3b30;
-            --apple-red-bg: #fff2f1;
+            --bg-chassis: #e9e9ee;
+            --panel-bg: #f8f8fa;
+            --panel-border: #d2d2d7;
+            --text-dark: #1d1d1f;
+            --text-muted: #86868b;
+            
+            /* Skeuomorphic Button Colors */
+            --btn-neutral-top: #ffffff;
+            --btn-neutral-bottom: #e5e5ea;
+            --btn-neutral-border: #bcbcc0;
+            --btn-neutral-shadow: rgba(0, 0, 0, 0.12);
+            
+            --btn-blue-top: #2190ff;
+            --btn-blue-bottom: #0066cc;
+            --btn-blue-border: #0052a3;
+            --btn-blue-shadow: rgba(0, 102, 204, 0.35);
+
+            --btn-green-top: #34d058;
+            --btn-green-bottom: #22863a;
+            --btn-green-border: #1b6d2f;
+            --btn-green-shadow: rgba(34, 134, 58, 0.35);
+
+            --btn-red-top: #ff5449;
+            --btn-red-bottom: #d7251a;
+            --btn-red-border: #b31d14;
         }
 
         * {
@@ -1171,94 +1166,96 @@ namespace PPTWebBrowserAddIn
             margin: 0;
             padding: 0;
             user-select: none;
+            -webkit-user-select: none;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, ""SF Pro Text"", ""SF Pro Display"", ""Segoe UI"", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-page);
-            color: var(--text-primary);
+            background-color: var(--bg-chassis);
+            color: var(--text-dark);
             min-height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
             overflow-x: hidden;
-            padding: 18px 16px 36px 16px;
+            padding: 16px 14px 36px 14px;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Top Minimalist Header */
-        .app-header {
+        /* Top Hardware Header */
+        .hardware-header {
             width: 100%;
             max-width: 380px;
-            padding: 6px 4px 18px 4px;
+            padding: 4px 6px 16px 6px;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .brand-title {
-            font-size: 21px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            color: var(--text-primary);
+        .brand-logo {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.6px;
+            color: #2c2c2e;
+            text-shadow: 0 1px 0 #ffffff;
         }
 
-        .status-badge {
+        .hardware-led-badge {
             display: flex;
             align-items: center;
             gap: 7px;
-            background: #ffffff;
-            padding: 6px 13px;
-            border-radius: 14px;
+            background: linear-gradient(180deg, #ffffff 0%, #ececec 100%);
+            padding: 5px 12px;
+            border-radius: 12px;
             font-size: 12px;
-            font-weight: 500;
-            color: var(--text-secondary);
-            border: 1px solid var(--card-border);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+            font-weight: 600;
+            color: #555558;
+            border: 1px solid #c8c8cc;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 #ffffff;
         }
 
-        .status-dot {
+        .led-indicator {
             width: 7px;
             height: 7px;
-            background: var(--apple-green);
+            background: #28cd41;
             border-radius: 50%;
-            box-shadow: 0 0 6px var(--apple-green);
+            box-shadow: 0 0 6px #28cd41, inset 0 1px 1px rgba(255,255,255,0.6);
         }
 
-        /* Apple iOS Segmented Control Switcher */
-        .tab-bar-container {
+        /* Skeuomorphic Inset Segmented Switcher */
+        .skeuo-tab-tray {
             width: 100%;
             max-width: 380px;
             margin-bottom: 18px;
-            background: #e5e5ea;
-            border-radius: 15px;
+            background: #d8d8dc;
+            border-radius: 14px;
             padding: 3px;
             display: flex;
-            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.16), 0 1px 0 #ffffff;
+            border: 1px solid #c0c0c5;
         }
 
-        .tab-btn {
+        .skeuo-tab-btn {
             flex: 1;
-            padding: 9px 0;
+            padding: 8px 0;
             text-align: center;
             font-size: 14px;
-            font-weight: 600;
-            border-radius: 12px;
-            color: var(--text-secondary);
+            font-weight: 700;
+            border-radius: 11px;
+            color: #7c7c82;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.15s ease;
             border: none;
             background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.7);
         }
 
-        .tab-btn.active {
-            background: #ffffff;
-            color: var(--text-primary);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
+        .skeuo-tab-btn.active {
+            background: linear-gradient(180deg, #ffffff 0%, #ebebef 100%);
+            color: #1d1d1f;
+            border: 1px solid #bcbcc0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15), inset 0 1px 0 #ffffff;
+            text-shadow: none;
         }
 
         /* Tab Content Panes */
@@ -1269,145 +1266,151 @@ namespace PPTWebBrowserAddIn
             flex-direction: column;
             align-items: center;
             gap: 16px;
-            animation: paneFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .tab-pane.active {
             display: flex;
         }
 
-        @keyframes paneFadeIn {
-            from { opacity: 0; transform: translateY(3px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Pure White Card Base */
-        .apple-card {
+        /* Tactile Hardware Panel Card */
+        .tactile-card {
             width: 100%;
-            background: var(--card-bg);
-            border-radius: 26px;
-            border: 1px solid var(--card-border);
-            padding: 22px 18px;
+            background: linear-gradient(180deg, #fbfbfd 0%, #f0f0f4 100%);
+            border-radius: 22px;
+            border: 1px solid #c8c8cd;
+            padding: 20px 16px;
             display: flex;
             flex-direction: column;
-            box-shadow: var(--card-shadow);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07), inset 0 1px 0 #ffffff;
             gap: 14px;
         }
 
-        .card-header-title {
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: -0.2px;
-            color: var(--text-secondary);
+        .card-label {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            color: #6e6e73;
+            text-shadow: 0 1px 0 #ffffff;
         }
 
-        /* 🎮 Tab 1: Navigation Controls */
-        .next-hero-btn {
+        /* 🎮 Big Tactile Hero Next Button (Skeuomorphic) */
+        .skeuo-hero-next {
             width: 100%;
-            height: 98px;
-            background: var(--apple-blue);
-            border-radius: 20px;
-            border: none;
+            height: 94px;
+            background: linear-gradient(180deg, var(--btn-blue-top) 0%, var(--btn-blue-bottom) 100%);
+            border: 1px solid var(--btn-blue-border);
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
             color: #ffffff;
+            font-size: 19px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.12s ease;
-            box-shadow: 0 6px 18px rgba(0, 113, 227, 0.24);
+            box-shadow: 0 5px 12px var(--btn-blue-shadow), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+            text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.4);
+            transition: all 0.08s ease;
         }
 
-        .next-hero-btn:active {
-            transform: scale(0.98);
-            background: var(--apple-blue-active);
+        .skeuo-hero-next:active {
+            transform: translateY(2px);
+            background: linear-gradient(180deg, #005bb8 0%, #0070db 100%);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        .next-hero-btn svg {
+        .skeuo-hero-next svg {
             width: 26px;
             height: 26px;
             fill: #ffffff;
+            filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.3));
         }
 
-        .next-hero-btn span {
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: -0.3px;
-        }
-
-        .nav-grid-two {
+        /* Tactile Grid Buttons */
+        .tactile-grid-two {
             width: 100%;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
         }
 
-        .flat-btn {
+        .skeuo-btn {
             height: 52px;
-            background: var(--btn-neutral-bg);
-            border-radius: 16px;
-            border: none;
+            background: linear-gradient(180deg, var(--btn-neutral-top) 0%, var(--btn-neutral-bottom) 100%);
+            border: 1px solid var(--btn-neutral-border);
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 7px;
             font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-weight: 700;
+            color: #2c2c2e;
             cursor: pointer;
-            transition: all 0.12s ease;
+            box-shadow: 0 3px 8px var(--btn-neutral-shadow), inset 0 1px 0 #ffffff;
+            text-shadow: 0 1px 0 #ffffff;
+            transition: all 0.08s ease;
         }
 
-        .flat-btn:active {
-            transform: scale(0.97);
-            background: var(--btn-neutral-active);
+        .skeuo-btn:active {
+            transform: translateY(2px);
+            background: linear-gradient(180deg, #d8d8dc 0%, #e8e8ed 100%);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.15);
         }
 
-        .flat-btn svg {
+        .skeuo-btn svg {
             width: 17px;
             height: 17px;
-            fill: var(--text-primary);
+            fill: #3a3a3c;
         }
 
-        /* iOS Control Center Volume Capsule Slider */
-        .volume-header-row {
+        /* Skeuomorphic Inset Volume Capsule Slider */
+        .volume-header-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .volume-badge {
+        .volume-num-badge {
             font-size: 13px;
-            font-weight: 600;
-            color: var(--apple-blue);
+            font-weight: 800;
+            color: #0066cc;
+            background: #e1effe;
+            border: 1px solid #b8d9fc;
+            padding: 2px 8px;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 1px #ffffff;
         }
 
-        .volume-capsule-wrapper {
+        .skeuo-volume-capsule {
             position: relative;
             width: 100%;
-            height: 54px;
-            background: #e5e5ea;
-            border-radius: 18px;
+            height: 52px;
+            background: #d0d0d5;
+            border-radius: 16px;
             overflow: hidden;
             cursor: pointer;
             display: flex;
             align-items: center;
             touch-action: none;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 0 #ffffff;
+            border: 1px solid #b2b2b8;
         }
 
-        .volume-capsule-fill {
+        .skeuo-volume-fill {
             position: absolute;
             left: 0;
             top: 0;
             height: 100%;
             width: 50%;
-            background: var(--apple-blue);
-            border-radius: 18px;
+            background: linear-gradient(180deg, #2e96ff 0%, #0066cc 100%);
+            border-radius: 14px;
             pointer-events: none;
-            will-change: width;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 0 4px rgba(0, 102, 204, 0.4);
+            border-right: 1px solid #004c99;
         }
 
-        .volume-capsule-content {
+        .skeuo-volume-content {
             position: absolute;
             width: 100%;
             height: 100%;
@@ -1419,53 +1422,45 @@ namespace PPTWebBrowserAddIn
             z-index: 2;
         }
 
-        .volume-icon-left {
+        .skeuo-volume-content svg {
             width: 20px;
             height: 20px;
             fill: #ffffff;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
         }
 
-        .volume-icon-right {
-            width: 20px;
-            height: 20px;
-            fill: var(--text-secondary);
-        }
-
-        /* 📷 Tab 2: Visualizer Camera */
-        .snap-hero-wrapper {
+        /* 📷 Tab 2: Visualizer Camera (Skeuomorphic) */
+        .skeuo-hero-camera {
             position: relative;
             width: 100%;
-        }
-
-        .snap-hero-btn {
-            width: 100%;
             height: 84px;
-            background: var(--apple-green);
-            border-radius: 22px;
-            border: none;
-            color: #ffffff;
-            font-size: 17px;
-            font-weight: 600;
-            letter-spacing: -0.3px;
+            background: linear-gradient(180deg, var(--btn-green-top) 0%, var(--btn-green-bottom) 100%);
+            border: 1px solid var(--btn-green-border);
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 9px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.12s ease;
-            box-shadow: 0 6px 18px rgba(52, 199, 89, 0.25);
+            box-shadow: 0 5px 12px var(--btn-green-shadow), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+            text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.35);
+            transition: all 0.08s ease;
         }
 
-        .snap-hero-btn:active {
-            transform: scale(0.98);
-            background: var(--apple-green-active);
+        .skeuo-hero-camera:active {
+            transform: translateY(2px);
+            background: linear-gradient(180deg, #1e7e34 0%, #28a745 100%);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        .snap-hero-btn svg {
+        .skeuo-hero-camera svg {
             width: 24px;
             height: 24px;
             fill: #ffffff;
+            filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.3));
         }
 
         #nativeCameraInput {
@@ -1479,17 +1474,18 @@ namespace PPTWebBrowserAddIn
             z-index: 10;
         }
 
-        .preview-box {
+        .skeuo-preview-screen {
             width: 100%;
-            height: 180px;
-            background: #f8f8fa;
-            border: 1px dashed #d1d1d6;
-            border-radius: 18px;
+            height: 175px;
+            background: #18191c;
+            border-radius: 16px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            border: 2px solid #33353a;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.6), 0 1px 0 #ffffff;
         }
 
         #previewThumb {
@@ -1499,111 +1495,104 @@ namespace PPTWebBrowserAddIn
             display: none;
         }
 
-        .preview-placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-secondary);
+        .preview-text {
+            color: #8e8e93;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
         }
 
-        .preview-placeholder svg {
-            width: 32px;
-            height: 32px;
-            fill: #aeaeb2;
-        }
-
-        .exit-btn {
+        .skeuo-btn-danger {
             width: 100%;
             height: 48px;
-            background: var(--apple-red-bg);
-            border: 1px solid rgba(255, 59, 48, 0.12);
-            border-radius: 16px;
-            color: var(--apple-red);
+            background: linear-gradient(180deg, var(--btn-red-top) 0%, var(--btn-red-bottom) 100%);
+            border: 1px solid var(--btn-red-border);
+            border-radius: 14px;
+            color: #ffffff;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
             cursor: pointer;
-            transition: all 0.12s ease;
+            box-shadow: 0 3px 8px rgba(215, 37, 26, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+            text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.3);
+            transition: all 0.08s ease;
         }
 
-        .exit-btn:active {
-            transform: scale(0.97);
-            background: rgba(255, 59, 48, 0.16);
+        .skeuo-btn-danger:active {
+            transform: translateY(2px);
+            background: linear-gradient(180deg, #a7180f 0%, #c41f15 100%);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
 <body>
 
-    <!-- Top Minimalist Header -->
-    <div class=""app-header"">
-        <div class=""brand-title"">YuLink</div>
-        <div class=""status-badge"">
-            <div id=""ledDot"" class=""status-dot""></div>
+    <!-- Top Hardware Header -->
+    <div class=""hardware-header"">
+        <div class=""brand-logo"">YuLink</div>
+        <div class=""hardware-led-badge"">
+            <div id=""ledDot"" class=""led-indicator""></div>
             <span>已连接 PPT</span>
         </div>
     </div>
 
-    <!-- Apple iOS Segmented Control Switcher -->
-    <div class=""tab-bar-container"">
-        <button class=""tab-btn active"" onclick=""switchTab('remote')"">遥控翻页</button>
-        <button class=""tab-btn"" onclick=""switchTab('camera')"">实物展台</button>
+    <!-- Skeuomorphic Inset Segmented Switcher -->
+    <div class=""skeuo-tab-tray"">
+        <button class=""skeuo-tab-btn active"" onclick=""switchTab('remote')"">遥控翻页</button>
+        <button class=""skeuo-tab-btn"" onclick=""switchTab('camera')"">实物展台</button>
     </div>
 
-    <!-- 🎮 Tab 1: Minimalist Remote Controller Pane -->
+    <!-- 🎮 Tab 1: Skeuomorphic Remote Controller Pane -->
     <div id=""pane-remote"" class=""tab-pane active"">
         
         <!-- Primary Slideshow Control Card -->
-        <div class=""apple-card"">
-            <div class=""card-header-title"">幻灯片放映控制</div>
+        <div class=""tactile-card"">
+            <div class=""card-label"">幻灯片放映控制</div>
 
-            <button class=""next-hero-btn"" onclick=""sendCmd('/next')"">
+            <button class=""skeuo-hero-next"" onclick=""sendCmd('/next')"">
                 <svg viewBox=""0 0 24 24""><path d=""M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z""/></svg>
                 <span>下一页 (Next)</span>
             </button>
 
-            <div class=""nav-grid-two"">
-                <button class=""flat-btn"" onclick=""sendCmd('/prev')"">
+            <div class=""tactile-grid-two"">
+                <button class=""skeuo-btn"" onclick=""sendCmd('/prev')"">
                     <svg viewBox=""0 0 24 24""><path d=""M6 6h2v12H6zm3.5 6l8.5 6V6z""/></svg>
                     <span>上一页</span>
                 </button>
-                <button class=""flat-btn"" onclick=""sendCmd('/play')"">
+                <button class=""skeuo-btn"" onclick=""sendCmd('/play')"">
                     <svg viewBox=""0 0 24 24""><path d=""M8 5v14l11-7z""/></svg>
                     <span>播放 / 暂停</span>
                 </button>
             </div>
 
             <!-- Practical Presentation Utilities -->
-            <div class=""nav-grid-two"">
-                <button class=""flat-btn"" onclick=""sendCmd('/black')"">
+            <div class=""tactile-grid-two"">
+                <button class=""skeuo-btn"" onclick=""sendCmd('/black')"">
                     <svg viewBox=""0 0 24 24""><path d=""M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z""/></svg>
                     <span>一键黑屏</span>
                 </button>
-                <button class=""flat-btn"" onclick=""sendCmd('/first_slide')"">
+                <button class=""skeuo-btn"" onclick=""sendCmd('/first_slide')"">
                     <svg viewBox=""0 0 24 24""><path d=""M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z""/></svg>
                     <span>返回第一页</span>
                 </button>
             </div>
         </div>
 
-        <!-- Windows Native Master Volume Card (iOS Control Center Capsule Slider) -->
-        <div class=""apple-card"">
-            <div class=""volume-header-row"">
-                <span class=""card-header-title"">系统主音量</span>
-                <span id=""lblVolume"" class=""volume-badge"">50%</span>
+        <!-- Windows Native Master Volume Card (Skeuomorphic Capsule) -->
+        <div class=""tactile-card"">
+            <div class=""volume-header-bar"">
+                <span class=""card-label"">系统主音量</span>
+                <span id=""lblVolume"" class=""volume-num-badge"">50%</span>
             </div>
 
-            <!-- iOS Control Center Fluid Drag Capsule Slider (Real-time Feedback) -->
-            <div id=""volCapsule"" class=""volume-capsule-wrapper"">
-                <div id=""volFill"" class=""volume-capsule-fill"" style=""width: 50%;""></div>
-                <div class=""volume-capsule-content"">
-                    <svg class=""volume-icon-left"" viewBox=""0 0 24 24""><path d=""M7 9v6h4l5 5V4L11 9H7z""/></svg>
-                    <svg class=""volume-icon-right"" viewBox=""0 0 24 24""><path d=""M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z""/></svg>
+            <!-- Tactile Inset Capsule Volume Slider -->
+            <div id=""volCapsule"" class=""skeuo-volume-capsule"">
+                <div id=""volFill"" class=""skeuo-volume-fill"" style=""width: 50%;""></div>
+                <div class=""skeuo-volume-content"">
+                    <svg viewBox=""0 0 24 24""><path d=""M7 9v6h4l5 5V4L11 9H7z""/></svg>
+                    <svg viewBox=""0 0 24 24""><path d=""M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z""/></svg>
                 </div>
             </div>
         </div>
@@ -1613,40 +1602,39 @@ namespace PPTWebBrowserAddIn
     <!-- 📷 Tab 2: Visualizer Camera & Homework Grading Pane -->
     <div id=""pane-camera"" class=""tab-pane"">
         
-        <div class=""apple-card"">
-            <div class=""card-header-title"">实物展台 · 拍照讲评作业 (100%原图无损)</div>
+        <div class=""tactile-card"">
+            <div class=""card-label"">实物展台 · 拍照讲评作业</div>
 
-            <!-- Native Optical Camera Trigger (100% Lossless Raw Image Upload) -->
-            <div class=""snap-hero-wrapper"">
-                <button class=""snap-hero-btn"">
+            <!-- Native Optical Camera Trigger (Skeuomorphic Green Hero) -->
+            <div style=""position: relative; width: 100%;"">
+                <button class=""skeuo-hero-camera"">
                     <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
                     <span>拍照投屏讲评</span>
                 </button>
                 <input id=""nativeCameraInput"" type=""file"" accept=""image/*"" capture=""environment"" onchange=""handleNativePhoto(this)"" />
             </div>
 
-            <!-- Photo Preview Box -->
-            <div class=""preview-box"">
+            <!-- Dark Screen Preview Box -->
+            <div class=""skeuo-preview-screen"">
                 <img id=""previewThumb"" alt=""Photo Preview"" />
-                <div id=""previewPlaceholder"" class=""preview-placeholder"">
-                    <svg viewBox=""0 0 24 24""><path d=""M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z""/></svg>
-                    <span>拍摄后在此预览并秒级上大屏 (支持滚轮缩放与拖拽)</span>
+                <div id=""previewPlaceholder"" class=""preview-text"">
+                    拍摄后在此预览并同步大屏
                 </div>
             </div>
 
-            <div class=""nav-grid-two"">
-                <button class=""flat-btn"" onclick=""rotateScreen()"">
+            <div class=""tactile-grid-two"">
+                <button class=""skeuo-btn"" onclick=""rotateScreen()"">
                     <svg viewBox=""0 0 24 24""><path d=""M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.6-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37.5 6 3.41 6 6.91 0 1.25-.34 2.43-.93 3.44l1.46 1.46C20.45 16.38 21 14.77 21 13c0-4.42-3.21-8.08-7.39-8.73z""/></svg>
-                    <span>大屏旋转90°</span>
+                    <span>旋转 90°</span>
                 </button>
-                <button class=""flat-btn"" onclick=""triggerCameraAgain()"">
+                <button class=""skeuo-btn"" onclick=""triggerCameraAgain()"">
                     <svg viewBox=""0 0 24 24""><path d=""M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z""/></svg>
                     <span>重拍作业</span>
                 </button>
             </div>
 
-            <button class=""exit-btn"" onclick=""stopVisualizer()"">
-                <span>退出展台 · 恢复原幻灯片</span>
+            <button class=""skeuo-btn-danger"" onclick=""stopVisualizer()"">
+                <span>退出展台 · 恢复放映</span>
             </button>
         </div>
 
@@ -1655,13 +1643,13 @@ namespace PPTWebBrowserAddIn
     <script>
         // Haptic feedback
         function vibrate() {
-            if (navigator.vibrate) navigator.vibrate(20);
+            if (navigator.vibrate) navigator.vibrate(25);
         }
 
         // Tab Switcher
         function switchTab(name) {
             vibrate();
-            const btns = document.querySelectorAll('.tab-btn');
+            const btns = document.querySelectorAll('.skeuo-tab-btn');
             btns.forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
@@ -1687,15 +1675,13 @@ namespace PPTWebBrowserAddIn
             } catch (e) {}
             setTimeout(() => {
                 if (led) {
-                    led.style.backgroundColor = 'var(--apple-green)';
-                    led.style.boxShadow = '0 0 6px var(--apple-green)';
+                    led.style.backgroundColor = '#28cd41';
+                    led.style.boxShadow = '0 0 6px #28cd41';
                 }
             }, 180);
         }
 
-        // =========================================================================
-        // High-Precision Real-time Audio Volume Dragging Engine (Zero Lag)
-        // =========================================================================
+        // High-Precision Real-time Audio Volume Dragging Engine
         const capsule = document.getElementById('volCapsule');
         const fill = document.getElementById('volFill');
         const badge = document.getElementById('lblVolume');
@@ -1733,9 +1719,7 @@ namespace PPTWebBrowserAddIn
             let ratio = (clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
 
-            // Instant UI update
             updateVolumeUI(ratio);
-            // Instant real-time backend dispatch
             dispatchVolumeToServer(ratio);
         }
 
@@ -1779,9 +1763,7 @@ namespace PPTWebBrowserAddIn
         }
         fetchSystemVolume();
 
-        // =========================================================================
-        // 100% Lossless Raw Image Upload Engine
-        // =========================================================================
+        // 100% Lossless Raw Image Upload
         function triggerCameraAgain() {
             document.getElementById('nativeCameraInput').click();
         }
@@ -1791,7 +1773,6 @@ namespace PPTWebBrowserAddIn
                 const file = input.files[0];
                 const reader = new FileReader();
                 reader.onload = async function(e) {
-                    // Raw 100% bit-for-bit lossless DataURL directly from camera sensor
                     const rawBase64 = e.target.result;
                     
                     const thumb = document.getElementById('previewThumb');
@@ -1808,7 +1789,7 @@ namespace PPTWebBrowserAddIn
                             body: JSON.stringify({ image: rawBase64 })
                         });
                         if (res.ok) {
-                            alert('照片原图无损投屏成功！大屏端可自由拖拽、滚轮缩放与画笔批改。');
+                            alert('照片已同步大屏！');
                         }
                     } catch (err) {
                         alert('上传失败: ' + err.message);
@@ -1829,7 +1810,7 @@ namespace PPTWebBrowserAddIn
             vibrate();
             try {
                 await fetch('/api/stop_cast', { method: 'POST' });
-                alert('已退出展台，PPT 恢复幻灯片播放。');
+                alert('已退出展台，PPT 恢复放映。');
             } catch (e) {}
         }
     </script>
