@@ -98,23 +98,27 @@ YuLink is built upon modern Chromium WebView2 and the .NET Framework. Most Windo
 
 ---
 
-### 2. One-Click Installation & Deployment
+### 2. Automation Toolbox & One-Click Deployment (Tools & Installation)
 
-#### 🚀 Method 1: One-Click Auto Install (Recommended)
-1. Download the latest release package or clone this repository.
-2. Double-click **`一键安装.bat`** (One-Click Install).
-3. The installer compiles the add-in offline, creates trust certificates, writes ClickOnce trust entries, and registers with PowerPoint & WPS.
-4. Open PowerPoint or WPS — the **`YuLink`** tab will appear on your top ribbon!
+YuLink comes with an out-of-the-box automated batch toolbox:
 
-#### 👨‍💻 Method 2: Developer Source Build
+| Automation Tool | Description | Use Case |
+| :--- | :--- | :--- |
+| **`一键安装.bat`** 🚀 | **One-Click Auto Installer**: Auto-diagnoses dependencies, auto-repairs missing runtimes, compiles offline, injects ClickOnce trust, and registers with Office & WPS. | **Initial Setup / Updates** |
+| **`环境检查与修复.bat`** 🔍 | **Environment Check & Auto-Repair**: Scans .NET 4.8 and WebView2; automatically downloads and installs missing runtimes from Microsoft. | **Troubleshooting / Clean OS** |
+| **`一键卸载.bat`** 🗑️ | **Clean Uninstaller**: Completely removes all registry add-in keys, COM registrations, and ClickOnce trust entries. | **Full Uninstallation** |
+
+#### 🚀 Quick Start:
+1. Download the release package or clone this repository.
+2. Double-click **`一键安装.bat`** (Handles auto-dependency repair & Office registration).
+3. Launch PowerPoint or WPS — the **`YuLink`** tab is ready!
+
+#### 👨‍💻 Developer Command-Line Build:
 ```bash
 git clone https://github.com/yosanji/YuLink.git
 cd YuLink
 powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 ```
-
-#### 🗑️ Uninstallation
-To completely remove the add-in and clean all registry entries and trust certificates, double-click **`一键卸载.bat`**.
 
 ---
 

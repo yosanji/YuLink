@@ -16,7 +16,7 @@ if (!(Test-Path $extractedDir)) {
 }
 
 # =========================================================================
-# Pre-Flight Dependency Diagnostic
+# Pre-Flight Dependency Diagnostic & Auto-Fix
 # =========================================================================
 Write-Host "Checking system dependencies..." -ForegroundColor Cyan
 
@@ -32,29 +32,74 @@ try {
 if ($net48Installed) {
     Write-Host "  [OK] .NET Framework 4.8+ detected." -ForegroundColor Green
 } else {
-    Write-Host "  [WARN] .NET Framework 4.8+ not detected. If installation fails, download from:" -ForegroundColor Yellow
-    Write-Host "         https://go.microsoft.com/fwlink/?linkid=2088631" -ForegroundColor Gray
+    Write-Host "  [AUTO-FIX] .NET Framework 4.8+ missing. Downloading official installer..." -ForegroundColor Yellow
+    $netInstaller = Join-Path $env:TEMP "ndp48-web.exe"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?LinkId=2085155" -OutFile $netInstaller -UseBasicParsing
+        Write-Host "  [AUTO-FIX] Launching .NET Framework 4.8 setup..." -ForegroundColor Yellow
+        Start-Process -FilePath $netInstaller -ArgumentList "/promptrestart" -Wait
+    } catch {
+        Write-Host "  [WARN] Failed to auto-download .NET: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "         Please install manually from: https://go.microsoft.com/fwlink/?linkid=2088631" -ForegroundColor Yellow
+    }
 }
 
 # 2. Check Edge WebView2 Runtime
 $wv2Installed = $false
-$wv2Keys = @(
-    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}",
-    "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}",
-    "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}"
+$wv2Version = ""
+
+$wv2Folders = @(
+    "C:\Program Files (x86)\Microsoft\EdgeWebView\Application",
+    "C:\Program Files\Microsoft\EdgeWebView\Application",
+    (Join-Path $env:LOCALAPPDATA "Microsoft\EdgeWebView\Application")
 )
-foreach ($k in $wv2Keys) {
-    if (Test-Path $k) {
-        $pv = (Get-ItemProperty -Path $k -ErrorAction SilentlyContinue).pv
-        if ($pv -and $pv -ne "0.0.0.0") { $wv2Installed = $true; break }
+foreach ($f in $wv2Folders) {
+    if (Test-Path $f) {
+        $verDirs = Get-ChildItem -Path $f -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^\d+\.\d+\.\d+\.\d+$" }
+        if ($verDirs) {
+            $wv2Installed = $true
+            $wv2Version = ($verDirs | Select-Object -First 1).Name
+            break
+        }
+    }
+}
+
+if (!$wv2Installed) {
+    $wv2Keys = @(
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}",
+        "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}",
+        "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-F500-4414-A21F-42A6A80BE50E}"
+    )
+    foreach ($k in $wv2Keys) {
+        if (Test-Path $k) {
+            $pv = (Get-ItemProperty -Path $k -ErrorAction SilentlyContinue).pv
+            if ($pv -and $pv -ne "0.0.0.0") {
+                $wv2Installed = $true
+                $wv2Version = $pv
+                break
+            }
+        }
     }
 }
 
 if ($wv2Installed) {
-    Write-Host "  [OK] Microsoft Edge WebView2 Runtime detected ($pv)." -ForegroundColor Green
+    Write-Host "  [OK] Microsoft Edge WebView2 Runtime detected ($wv2Version)." -ForegroundColor Green
 } else {
-    Write-Host "  [WARN] Microsoft Edge WebView2 Runtime not detected. Web embedding requires it." -ForegroundColor Yellow
-    Write-Host "         Download: https://go.microsoft.com/fwlink/p/?LinkId=2124703" -ForegroundColor Gray
+    Write-Host "  [AUTO-FIX] WebView2 Runtime missing. Downloading official installer..." -ForegroundColor Yellow
+    $wv2Installer = Join-Path $env:TEMP "MicrosoftEdgeWebview2Setup.exe"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $wv2Installer -UseBasicParsing
+        Write-Host "  [AUTO-FIX] Installing Microsoft Edge WebView2 Runtime silently..." -ForegroundColor Yellow
+        $proc = Start-Process -FilePath $wv2Installer -ArgumentList "/silent /install" -Wait -PassThru
+        if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -2147219416) {
+            Write-Host "  [OK] WebView2 Runtime installed successfully!" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  [WARN] Failed to auto-install WebView2: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "         Please install manually from: https://go.microsoft.com/fwlink/p/?LinkId=2124703" -ForegroundColor Yellow
+    }
 }
 # =========================================================================
 
