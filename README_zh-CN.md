@@ -23,7 +23,7 @@
 2. **切出后无法板书批注**：一旦切到外部网页，PPT 自带的画笔瞬间失效，无法在关键知识点上随手圈画。
 3. **本地开发模型难以共享**：许多先进的教学模型运行在本地（如 Localhost、本地 WebGL 课件），缺乏免配置的同屏演示与移动端同步方案。
 
-**YuLink 应运而生。** 本项目在开源社区优秀探索的基础上进行了深度重构与功能拓展，旨在**让幻灯片演播回归纯粹、流畅与一体化**。
+**YuLink 应运而生。** 本项目基于 **C# / VSTO** 与 **Microsoft Edge Chromium WebView2** 内核，旨在**让幻灯片演播回归纯粹、流畅与一体化**。
 
 ---
 
@@ -87,9 +87,11 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 
 ---
 
-## 🤝 致谢与开源说明 (Acknowledgements)
+## 🤝 致谢与上游开源项目 (Acknowledgements & Credits)
 
-本项目在开源社区先驱探索的基础上进行了深度重构与架构升级。特别致敬为 Office 开发者生态做出杰出贡献的开源项目与工程师群体。
+本项目基于原作者 [@yuwenhui2020](https://github.com/yuwenhui2020) 开源的 [yuwenhui2020/PPT-Addin](https://github.com/yuwenhui2020/PPT-Addin) 进行了深度的架构重构与功能拓展。
+
+特此向原作者在 PPT 网页内嵌领域的先驱探索致以诚挚敬意！YuLink 在此基础上重构了拟物悬浮批注系统、Localhost 透明反向代理、物理翻页笔直通及 Chrome 级离散缩放等现代演示体验。
 
 ---
 
@@ -97,4 +99,5 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 
 本项目采用 [MIT License](LICENSE) 开源协议。
 
-Copyright (c) 2026 **yosanji (鱼玄机)**. All rights reserved.
+- Copyright (c) 2026 **yosanji (鱼玄机)** - YuLink project
+- Copyright (c) 2025 **yuwenhui2020** - PPT-Addin original work

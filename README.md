@@ -89,6 +89,11 @@ Double-click **`一键卸载.bat`** to completely remove all registry entries, t
 
 ---
 
+### 🤝 Acknowledgements & Upstream Project
+YuLink is built upon and inspired by the pioneering open-source work [PPT-Addin](https://github.com/yuwenhui2020/PPT-Addin) by [@yuwenhui2020](https://github.com/yuwenhui2020). We express our sincere gratitude to the original author for their exploration in PPT web embedding. YuLink has deeply refactored the architecture, adding skeuomorphic floating annotations, transparent localhost proxying, hardware presenter remote pass-through, and Chrome-grade viewport scaling.
+
+---
+
 <br />
 
 ---
@@ -151,9 +156,11 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 
 ---
 
-## 🤝 致谢与开源说明 (Acknowledgements)
+## 🤝 致谢与上游开源项目 (Acknowledgements & Credits)
 
-本项目在开源社区先驱探索的基础上进行了深度重构与架构升级。特别致敬为 Office 开发者生态做出杰出贡献的开源项目与工程师群体。
+本项目基于原作者 [@yuwenhui2020](https://github.com/yuwenhui2020) 开源的 [yuwenhui2020/PPT-Addin](https://github.com/yuwenhui2020/PPT-Addin) 进行了深度的架构重构与功能拓展。
+
+特此向原作者在 PPT 网页内嵌领域的先驱探索致以诚挚敬意！YuLink 在此基础上重构了拟物悬浮批注系统、Localhost 透明反向代理、物理翻页笔直通及 Chrome 级离散缩放等现代演示体验。
 
 ---
 
@@ -161,4 +168,5 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 
 本项目采用 [MIT License](LICENSE) 开源协议。
 
-Copyright (c) 2026 **yosanji (鱼玄机)**. All rights reserved.
+- Copyright (c) 2026 **yosanji (鱼玄机)** - YuLink project
+- Copyright (c) 2025 **yuwenhui2020** - PPT-Addin original work
