@@ -150,9 +150,17 @@ powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 1. When presenting a local dev server (e.g. `http://localhost:3000`), click the **QR Code** icon in the navigation bar.
 2. YuLink automatically activates its transparent reverse proxy. Mobile devices on the same LAN can scan and load all HTML, CSS, JS, and image assets seamlessly without requiring `--host` flags.
 
-#### ⑤ Local Wireless Mobile Remote Controller
+#### ⑤ Mobile 3-in-1 Smart Hub (Remote Controller · Camera Visualizer · Screen Mirror)
 1. Click **`开启控制` (Start Remote)** in the ribbon and scan the **`遥控二维码` (Remote QR)**.
-2. Turn any smartphone into an wireless presentation remote to switch slides forward and backward.
+2. The smartphone becomes a multi-functional presentation hub:
+   - 🎮 **Smart Remote**: Control slide advances, video playback, and black screen with haptic feedback.
+   - 📷 **Wireless Camera Visualizer (Zero App Installation)**:
+     - **📸 Snap & Cast**: Walk around the classroom to snap student homework — loads onto the PPT slide in 1 second, with floating pen annotations ready to grade live!
+     - **🎥 Live Video Stream**: Stream the phone's back camera directly onto the slide for live science experiments and demonstrations.
+     - **🔄 90° Screen Rotation**: Rotate portrait/landscape documents seamlessly.
+   - 📱 **Mobile Screen Mirroring**: Pair with open-source ad-free `ScreenStream` to mirror your full Android device screen onto PPT slides.
+   - ⏹️ **One-Tap Exit**: Exit the visualizer/mirror anytime to smoothly resume the PowerPoint presentation.
+
 
 ## 💬 Contact & Community (交流与反馈)
 

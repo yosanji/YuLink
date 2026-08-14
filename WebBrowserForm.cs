@@ -159,7 +159,20 @@ namespace PPTWebBrowserAddIn
             LayoutControls();
         }
 
-                private async void ToggleInkDrawing()
+        public void NavigateTo(string url)
+        {
+            _targetUrl = url;
+            if (_txtAddress != null)
+            {
+                _txtAddress.Text = url;
+            }
+            if (_webView != null && _webView.CoreWebView2 != null)
+            {
+                _webView.CoreWebView2.Navigate(url);
+            }
+        }
+
+        private async void ToggleInkDrawing()
         {
             if (_webView == null || _webView.CoreWebView2 == null) return;
             try

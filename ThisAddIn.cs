@@ -11,6 +11,8 @@ namespace PPTWebBrowserAddIn
 {
     public partial class ThisAddIn
     {
+        public static ThisAddIn Instance;
+        private WebBrowserForm _liveCastForm = null;
         private PowerPoint.Slide _currentSlide = null;
         private System.Windows.Forms.Timer _slideMonitorTimer;
         private bool _isInSlideShow = false;
@@ -110,6 +112,7 @@ namespace PPTWebBrowserAddIn
         {
             if (_isInitialized) return;
             _isInitialized = true;
+            Instance = this;
 
             try
             {
@@ -550,6 +553,87 @@ namespace PPTWebBrowserAddIn
                 _remoteServer.Stop();
                 _remoteServer = null;
             }
+        }
+
+        public void ShowLiveCast(string url)
+        {
+            SafeInvoke(new Action(() => {
+                ShowLiveCastInternal(url);
+            }));
+        }
+
+        private void ShowLiveCastInternal(string url)
+        {
+            try
+            {
+                IntPtr slideshowHwnd = IntPtr.Zero;
+                try
+                {
+                    if (Application.SlideShowWindows != null && Application.SlideShowWindows.Count > 0)
+                    {
+                        slideshowHwnd = (IntPtr)(uint)Application.SlideShowWindows[1].HWND;
+                    }
+                }
+                catch { }
+
+                if (_liveCastForm == null || _liveCastForm.IsDisposed)
+                {
+                    _liveCastForm = new WebBrowserForm(url);
+                    _liveCastForm.IsMaximized = true;
+                    if (slideshowHwnd != IntPtr.Zero)
+                    {
+                        _liveCastForm.Show(new WindowWrapper(slideshowHwnd));
+                    }
+                    else
+                    {
+                        _liveCastForm.Show();
+                    }
+                }
+                else
+                {
+                    _liveCastForm.NavigateTo(url);
+                }
+
+                if (slideshowHwnd != IntPtr.Zero)
+                {
+                    RECT winRect;
+                    if (GetClientRect(slideshowHwnd, out winRect))
+                    {
+                        int maxW = winRect.Right - winRect.Left;
+                        int maxH = winRect.Bottom - winRect.Top;
+                        POINT maxPt = new POINT { X = 0, Y = 0 };
+                        ClientToScreen(slideshowHwnd, ref maxPt);
+                        _liveCastForm.Location = new Point(maxPt.X, maxPt.Y);
+                        _liveCastForm.Size = new Size(maxW, maxH);
+                    }
+                }
+                _liveCastForm.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                LogToFile("ShowLiveCast error: " + ex.Message);
+            }
+        }
+
+        public void CloseLiveCast()
+        {
+            SafeInvoke(new Action(() => {
+                CloseLiveCastInternal();
+            }));
+        }
+
+        private void CloseLiveCastInternal()
+        {
+            try
+            {
+                if (_liveCastForm != null && !_liveCastForm.IsDisposed)
+                {
+                    _liveCastForm.Close();
+                    _liveCastForm.Dispose();
+                    _liveCastForm = null;
+                }
+            }
+            catch { }
         }
 
         public void ShowQRCodeWindow()
