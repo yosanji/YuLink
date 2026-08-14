@@ -65,7 +65,7 @@ namespace PPTWebBrowserAddIn
             {
                 var enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumeratorComObject());
                 IMMDevice speakers;
-                enumerator.GetDefaultAudioEndpoint(0, 1, out speakers); // eRender = 0, eMultimedia = 1
+                enumerator.GetDefaultAudioEndpoint(0, 1, out speakers);
                 var IID_IAudioEndpointVolume = typeof(IAudioEndpointVolume).GUID;
                 object o;
                 speakers.Activate(ref IID_IAudioEndpointVolume, 0, IntPtr.Zero, out o);
@@ -126,6 +126,9 @@ namespace PPTWebBrowserAddIn
         public static string CastMode = "none"; // none, photo, stream
         public static int CastRotation = 0; // 0, 90, 180, 270
 
+        private static bool _proxyEnabled = false;
+        private static int _proxyPort = 7890;
+
         private static int _lastSlideId = -1;
         private static HashSet<string> _playedVideoShapeNames = new HashSet<string>();
         private static string _activeVideoShapeName = null;
@@ -154,7 +157,6 @@ namespace PPTWebBrowserAddIn
                     }
 
                     string name = (nic.Name + " " + nic.Description).ToLower();
-                    // Exclude virtual / proxy / container / VPN adapters
                     if (name.Contains("meta") || name.Contains("clash") || name.Contains("wsl") || 
                         name.Contains("vethernet") || name.Contains("vmware") || name.Contains("virtualbox") || 
                         name.Contains("tap") || name.Contains("docker") || name.Contains("tailscale") || 
@@ -176,7 +178,7 @@ namespace PPTWebBrowserAddIn
                             if (nic.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || 
                                 name.Contains("wlan") || name.Contains("wi-fi") || name.Contains("wireless"))
                             {
-                                score += 100; // Prioritize Wi-Fi
+                                score += 100;
                             }
                             else if (nic.NetworkInterfaceType == NetworkInterfaceType.Ethernet || 
                                      name.Contains("ethernet") || name.Contains("以太网"))
@@ -246,10 +248,7 @@ namespace PPTWebBrowserAddIn
 
             try
             {
-                // Auto detect best active LAN IPv4
                 string localIp = GetBestLocalIpAddress();
-                
-                // Bind to standard TCP socket
                 _listener = new TcpListener(IPAddress.Any, _port);
                 _listener.Start();
                 
@@ -325,10 +324,18 @@ namespace PPTWebBrowserAddIn
                     client.ReceiveTimeout = 6000;
                     client.SendTimeout = 6000;
                     
+                    string clientIp = "127.0.0.1";
+                    try
+                    {
+                        var endPoint = (IPEndPoint)client.Client.RemoteEndPoint;
+                        clientIp = endPoint.Address.ToString();
+                        if (clientIp.StartsWith("::ffff:")) clientIp = clientIp.Substring(7);
+                    }
+                    catch { }
+
                     using (var stream = client.GetStream())
                     using (var reader = new StreamReader(stream, Encoding.UTF8))
                     {
-                        // Read request line
                         string requestLine = reader.ReadLine();
                         if (string.IsNullOrEmpty(requestLine)) return;
 
@@ -343,7 +350,6 @@ namespace PPTWebBrowserAddIn
                             path = path.Substring(0, queryIdx);
                         }
 
-                        // Parse Content-Length and consume headers
                         int contentLength = 0;
                         string headerLine;
                         while (!string.IsNullOrEmpty(headerLine = reader.ReadLine()))
@@ -367,7 +373,6 @@ namespace PPTWebBrowserAddIn
                             return;
                         }
 
-                        // Read request body for POST
                         string requestBody = "";
                         if (contentLength > 0 && contentLength < 35000000)
                         {
@@ -410,11 +415,6 @@ namespace PPTWebBrowserAddIn
                             float sysVol = WindowsAudioHelper.GetMasterVolume();
                             SendJsonResponse(stream, "{\"volume\":" + sysVol.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "}");
                         }
-                        else if (path == "/api/get_shared_web")
-                        {
-                            bool hasTarget = !string.IsNullOrEmpty(CurrentProxyTarget);
-                            SendJsonResponse(stream, "{\"hasTarget\":" + (hasTarget ? "true" : "false") + ",\"target\":\"" + EscapeJson(CurrentProxyTarget) + "\"}");
-                        }
                         else if (path == "/volume")
                         {
                             string valStr = "";
@@ -429,18 +429,48 @@ namespace PPTWebBrowserAddIn
                                 float vol = 0.5f;
                                 if (float.TryParse(valStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out vol))
                                 {
-                                    // 1. Direct real-time Windows Native Master Volume adjustment
                                     WindowsAudioHelper.SetMasterVolume(vol);
-
-                                    // 2. Direct PPT slide media shapes volume
                                     ControlPowerPointVolume(vol);
                                 }
                             }
                             SendJsonResponse(stream, "{\"status\":\"success\"}");
                         }
+                        else if (path == "/api/set_proxy")
+                        {
+                            // LAN Virtual Network / VPN Sharing to PC
+                            bool enable = parts[1].Contains("enable=1") || parts[1].Contains("enabled=true");
+                            int port = 7890;
+                            int portIdx = parts[1].IndexOf("port=");
+                            if (portIdx >= 0)
+                            {
+                                string portStr = parts[1].Substring(portIdx + 5);
+                                int endIdx = portStr.IndexOf('&');
+                                if (endIdx >= 0) portStr = portStr.Substring(0, endIdx);
+                                int.TryParse(portStr, out port);
+                            }
+                            if (port <= 0 || port > 65535) port = 7890;
+
+                            _proxyEnabled = enable;
+                            _proxyPort = port;
+
+                            if (enable)
+                            {
+                                string proxyAddr = clientIp + ":" + port;
+                                SetWindowsSystemProxy(proxyAddr, true);
+                            }
+                            else
+                            {
+                                SetWindowsSystemProxy("", false);
+                            }
+
+                            SendJsonResponse(stream, "{\"status\":\"success\",\"enabled\":" + (enable ? "true" : "false") + ",\"port\":" + port + ",\"clientIp\":\"" + clientIp + "\"}");
+                        }
+                        else if (path == "/api/get_proxy_status")
+                        {
+                            SendJsonResponse(stream, "{\"enabled\":" + (_proxyEnabled ? "true" : "false") + ",\"port\":" + _proxyPort + ",\"clientIp\":\"" + clientIp + "\"}");
+                        }
                         else if (path == "/api/cast_photo")
                         {
-                            // Receive high-res snapshot from phone camera
                             if (!string.IsNullOrEmpty(requestBody))
                             {
                                 string imgData = ExtractJsonString(requestBody, "image");
@@ -448,7 +478,7 @@ namespace PPTWebBrowserAddIn
                                 {
                                     CurrentCastImage = imgData;
                                     CastMode = "photo";
-                                    CastRotation = 0; // Reset rotation for new photo
+                                    CastRotation = 0;
                                     CastVersion++;
                                     
                                     if (Globals.ThisAddIn != null)
@@ -481,6 +511,12 @@ namespace PPTWebBrowserAddIn
                                 CastMode, CastVersion, CastRotation, EscapeJson(CurrentCastImage)
                             );
                             SendJsonResponse(stream, json);
+                        }
+                        else if (path == "/view_photo" || path == "/photo" || path == "/view")
+                        {
+                            // Pure Homework Photo Viewer (Scan QR code from big screen - ONLY views photo, ZERO control buttons)
+                            string html = GetPhotoViewerHtml();
+                            SendHtmlResponse(stream, html);
                         }
                         else if (path == "/cast_view")
                         {
@@ -849,8 +885,142 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
+        // Student/Audience Photo Viewer HTML (Scan QR Code from Big Screen)
+        // PURE READ-ONLY HOMEWORK PHOTO VIEWER (Zero Control Buttons)
+        // =========================================================================
+        private string GetPhotoViewerHtml()
+        {
+            return @"<!DOCTYPE html>
+<html lang=""zh-CN"">
+<head>
+    <meta charset=""utf-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"">
+    <title>实物作业展台</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #0c0d10;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            width: 100vw;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            padding: 16px;
+        }
+        .header-bar {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+        .title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #f5f5f7;
+            letter-spacing: -0.3px;
+        }
+        .tag {
+            font-size: 12px;
+            background: rgba(52, 199, 89, 0.16);
+            color: #34c759;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: 1px solid rgba(52, 199, 89, 0.3);
+        }
+        .img-card {
+            width: 100%;
+            max-width: 600px;
+            background: #18191c;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 320px;
+        }
+        #photoImg {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            object-fit: contain;
+            display: none;
+            border-radius: 18px;
+        }
+        .empty-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            color: #8e8e93;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .empty-box svg { width: 48px; height: 48px; fill: #636366; }
+        .hint-bar {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #636366;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class=""header-bar"">
+        <div class=""title"">作业试卷讲评</div>
+        <div class=""tag"">高清无损</div>
+    </div>
+
+    <div class=""img-card"">
+        <div id=""emptyHint"" class=""empty-box"">
+            <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
+            <div>教师尚未上传实物照片</div>
+        </div>
+        <img id=""photoImg"" alt=""Homework Photo"" />
+    </div>
+
+    <div class=""hint-bar"">支持手机双指缩放 · 长按可保存原图</div>
+
+    <script>
+        let curVer = -1;
+        async function fetchPhoto() {
+            try {
+                const res = await fetch('/api/get_cast_data');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.image && data.version !== curVer) {
+                        curVer = data.version;
+                        const img = document.getElementById('photoImg');
+                        const empty = document.getElementById('emptyHint');
+                        img.src = data.image;
+                        img.style.display = 'block';
+                        empty.style.display = 'none';
+                    } else if (data.mode === 'none') {
+                        document.getElementById('photoImg').style.display = 'none';
+                        document.getElementById('emptyHint').style.display = 'flex';
+                    }
+                }
+            } catch (e) {}
+            setTimeout(fetchPhoto, 500);
+        }
+        fetchPhoto();
+    </script>
+</body>
+</html>";
+        }
+
+        // =========================================================================
         // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
-        // Clean Minimal UI + Flawless Pointer-Capture Drag & Independent Pan/Rotation
+        // With [扫码看图] QR Popup for Students/Audience (Directs to /view_photo)
         // =========================================================================
         private string GetCastViewHtml()
         {
@@ -947,16 +1117,44 @@ namespace PPTWebBrowserAddIn
             pointer-events: none;
         }
         .empty-hint svg { width: 48px; height: 48px; fill: #636366; }
+
+        /* QR Share Modal for Students */
+        #qrModal {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 16px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            color: #1d1d1f;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 200;
+        }
+        #qrImg { width: 180px; height: 180px; border-radius: 12px; }
+        .qr-title { font-size: 13px; font-weight: 700; color: #1d1d1f; }
+        .qr-sub { font-size: 11px; color: #8e8e93; }
     </style>
 </head>
 <body>
     <div id=""viewport"">
         <div class=""hud-tools"">
+            <button class=""hud-btn"" onclick=""toggleShareQR()"">扫码看图</button>
             <button class=""hud-btn"" onclick=""zoomIn()"">放大</button>
             <button class=""hud-btn"" onclick=""zoomOut()"">缩小</button>
             <button class=""hud-btn"" onclick=""resetView()"">复位</button>
             <button class=""hud-btn"" onclick=""rotateImage()"">旋转</button>
             <button class=""hud-btn close"" onclick=""stopCast()"">退出</button>
+        </div>
+
+        <div id=""qrModal"">
+            <div class=""qr-title"">扫码在手机查看作业原图</div>
+            <img id=""qrImg"" src="""" alt=""QR Code"" />
+            <div class=""qr-sub"">仅供浏览图片 · 无遥控功能</div>
         </div>
 
         <div id=""emptyState"" class=""empty-hint"">
@@ -983,6 +1181,7 @@ namespace PPTWebBrowserAddIn
         const rotateScaleLayer = document.getElementById('rotateScaleLayer');
         const img = document.getElementById('castImage');
         const emptyState = document.getElementById('emptyState');
+        const qrModal = document.getElementById('qrModal');
 
         function updatePan() {
             panLayer.style.transform = 'translate3d(' + posX + 'px, ' + posY + 'px, 0)';
@@ -1019,9 +1218,17 @@ namespace PPTWebBrowserAddIn
             fetch('/api/stop_cast', { method: 'POST' });
         }
 
-        // =========================================================================
-        // Native-feeling Pointer Drag (Press to Drag -> Release to Stop)
-        // =========================================================================
+        function toggleShareQR() {
+            if (qrModal.style.display === 'flex') {
+                qrModal.style.display = 'none';
+            } else {
+                const photoUrl = window.location.origin + '/view_photo';
+                document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(photoUrl);
+                qrModal.style.display = 'flex';
+            }
+        }
+
+        // Pointer Drag Engine (Press to Drag -> Release to Stop)
         let isDown = false;
         let startX = 0;
         let startY = 0;
@@ -1029,7 +1236,8 @@ namespace PPTWebBrowserAddIn
         let initialScale = 1;
 
         viewport.addEventListener('pointerdown', (e) => {
-            if (e.target.tagName === 'BUTTON') return;
+            if (e.target.tagName === 'BUTTON' || qrModal.contains(e.target)) return;
+            if (qrModal.style.display === 'flex') qrModal.style.display = 'none';
             e.preventDefault();
             isDown = true;
             viewport.classList.add('dragging');
@@ -1066,7 +1274,7 @@ namespace PPTWebBrowserAddIn
             updateTransform();
         }, { passive: false });
 
-        // Touch Pinch-to-Zoom on Interactive Smartboards
+        // Touch Pinch-to-Zoom
         viewport.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
                 isDown = false;
@@ -1125,8 +1333,8 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Pure Minimalist Modern Apple Pro Web Controller HTML (Zero Emoji, Clean Vectors)
-        // With Real-time Volume, Lossless Photo Stream & Integrated LAN Web Sharing
+        // Pure Minimalist Modern Apple Pro Web Controller HTML
+        // With Real-time Volume, Lossless Camera & LAN VPN Proxy Sharing
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -1150,7 +1358,6 @@ namespace PPTWebBrowserAddIn
             --apple-blue-active: #0062c4;
             --apple-green: #34c759;
             --apple-green-active: #2ebd52;
-            --apple-purple: #af52de;
             --apple-red: #ff3b30;
             --apple-red-bg: #fff2f1;
         }
@@ -1422,33 +1629,76 @@ namespace PPTWebBrowserAddIn
             fill: var(--text-secondary);
         }
 
-        /* 🌐 LAN Web Page Share Card */
-        .share-card-btn {
-            width: 100%;
-            height: 52px;
-            background: #f5eefb;
-            border: 1px solid rgba(175, 82, 222, 0.18);
-            border-radius: 16px;
-            color: var(--apple-purple);
-            font-size: 14px;
-            font-weight: 600;
+        /* 📶 LAN Virtual Network / VPN Sharing Card */
+        .proxy-row {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
+            justify-content: space-between;
+        }
+
+        .proxy-info-col {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
             cursor: pointer;
-            transition: all 0.12s ease;
         }
 
-        .share-card-btn:active {
-            transform: scale(0.97);
-            background: #eddcf8;
+        .proxy-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
-        .share-card-btn svg {
-            width: 18px;
-            height: 18px;
-            fill: var(--apple-purple);
+        .proxy-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* iOS Toggle Switch */
+        .ios-switch {
+            position: relative;
+            display: inline-block;
+            width: 51px;
+            height: 31px;
+        }
+
+        .ios-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .ios-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e5ea;
+            transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 31px;
+        }
+
+        .ios-slider:before {
+            position: absolute;
+            content: """";
+            height: 27px;
+            width: 27px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked + .ios-slider {
+            background-color: var(--apple-green);
+        }
+
+        input:checked + .ios-slider:before {
+            transform: translateX(20px);
         }
 
         /* 📷 Tab 2: Visualizer Camera */
@@ -1627,13 +1877,18 @@ namespace PPTWebBrowserAddIn
             </div>
         </div>
 
-        <!-- 🌐 LAN Web Page Sharing Card -->
-        <div id=""webShareCard"" class=""apple-card"" style=""display: none;"">
-            <div class=""card-header-title"">局域网网页共享</div>
-            <button class=""share-card-btn"" onclick=""openSharedWebPage()"">
-                <svg viewBox=""0 0 24 24""><path d=""M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z""/></svg>
-                <span>在手机上同步打开课件网页</span>
-            </button>
+        <!-- 📶 LAN Virtual Network / VPN Sharing Card -->
+        <div class=""apple-card"">
+            <div class=""proxy-row"">
+                <div class=""proxy-info-col"" onclick=""configProxyPort()"">
+                    <div class=""proxy-title"">局域网虚拟网络共享</div>
+                    <div id=""proxySubtitle"" class=""proxy-desc"">手机 VPN/代理共享给电脑 (端口: 7890)</div>
+                </div>
+                <label class=""ios-switch"">
+                    <input id=""proxySwitch"" type=""checkbox"" onchange=""toggleProxy(this.checked)"">
+                    <span class=""ios-slider""></span>
+                </label>
+            </div>
         </div>
 
     </div>
@@ -1791,7 +2046,6 @@ namespace PPTWebBrowserAddIn
         window.addEventListener('mouseup', () => { isDraggingVol = false; });
         window.addEventListener('touchend', () => { isDraggingVol = false; });
 
-        // Load initial Windows master volume
         async function fetchSystemVolume() {
             try {
                 const res = await fetch('/api/get_system_volume');
@@ -1805,27 +2059,64 @@ namespace PPTWebBrowserAddIn
         }
         fetchSystemVolume();
 
-        // Check LAN Web Share status
-        async function checkSharedWeb() {
+        // =========================================================================
+        // LAN Virtual Network / VPN Proxy Sharing Engine
+        // =========================================================================
+        let currentProxyPort = 7890;
+
+        async function initProxyStatus() {
             try {
-                const res = await fetch('/api/get_shared_web');
+                const res = await fetch('/api/get_proxy_status');
                 if (res.ok) {
                     const data = await res.json();
-                    const card = document.getElementById('webShareCard');
-                    if (data.hasTarget) {
-                        card.style.display = 'flex';
-                    }
+                    document.getElementById('proxySwitch').checked = data.enabled;
+                    currentProxyPort = data.port || 7890;
+                    updateProxySubtitle(data.enabled);
                 }
             } catch (e) {}
         }
-        checkSharedWeb();
+        initProxyStatus();
 
-        function openSharedWebPage() {
-            vibrate();
-            window.open('/', '_blank');
+        function updateProxySubtitle(enabled) {
+            const sub = document.getElementById('proxySubtitle');
+            if (enabled) {
+                sub.innerText = '已开启 · 电脑正共享手机 VPN (端口: ' + currentProxyPort + ')';
+                sub.style.color = 'var(--apple-green)';
+            } else {
+                sub.innerText = '手机 VPN/代理共享给电脑 (点击设置端口: ' + currentProxyPort + ')';
+                sub.style.color = 'var(--text-secondary)';
+            }
         }
 
+        async function toggleProxy(enabled) {
+            vibrate();
+            try {
+                const res = await fetch('/api/set_proxy?enable=' + (enabled ? '1' : '0') + '&port=' + currentProxyPort);
+                if (res.ok) {
+                    updateProxySubtitle(enabled);
+                }
+            } catch (e) {
+                alert('网络共享设置失败: ' + e.message);
+            }
+        }
+
+        function configProxyPort() {
+            const newPort = prompt('请输入手机 VPN 局域网代理端口 (Clash/v2ray 默认通常为 7890 或 10808):', currentProxyPort);
+            if (newPort) {
+                const p = parseInt(newPort);
+                if (p > 0 && p <= 65535) {
+                    currentProxyPort = p;
+                    const isChecked = document.getElementById('proxySwitch').checked;
+                    toggleProxy(isChecked);
+                } else {
+                    alert('端口号不合法 (1-65535)');
+                }
+            }
+        }
+
+        // =========================================================================
         // 100% Lossless Raw Image Upload
+        // =========================================================================
         function triggerCameraAgain() {
             document.getElementById('nativeCameraInput').click();
         }
@@ -1851,7 +2142,7 @@ namespace PPTWebBrowserAddIn
                             body: JSON.stringify({ image: rawBase64 })
                         });
                         if (res.ok) {
-                            alert('照片已同步大屏！大屏端可自由拖拽与滚轮缩放。');
+                            alert('照片已同步大屏！大屏右上角可点击【扫码看图】供学生手机浏览。');
                         }
                     } catch (err) {
                         alert('上传失败: ' + err.message);
