@@ -100,14 +100,13 @@ namespace PPTWebBrowserAddIn
                 // Adjust right-aligned buttons location dynamically (Zoom In, Zoom Out, Share, Ink)
                 if (_btnZoomIn != null) _btnZoomIn.Location = new Point(formWidth - 36, 10);
                 if (_btnZoomOut != null) _btnZoomOut.Location = new Point(formWidth - 66, 10);
-                if (_btnShare != null) _btnShare.Location = new Point(formWidth - 96, 10);
-                if (_btnInk != null) _btnInk.Location = new Point(formWidth - 126, 10);
+                                if (_btnInk != null) _btnInk.Location = new Point(formWidth - 126, 10);
 
                 // Adjust address bar panel location & width
                 if (addressPanel != null)
                 {
                     addressPanel.Location = new Point(146, 8);
-                    addressPanel.Width = Math.Max(100, formWidth - 146 - 140);
+                    addressPanel.Width = Math.Max(100, formWidth - 146 - 110);
 
                     var path = new System.Drawing.Drawing2D.GraphicsPath();
                     int r = 8;
@@ -754,16 +753,19 @@ namespace PPTWebBrowserAddIn
 
                 private void ShareViaQrCode()
         {
-            if (_webView == null) return;
-            string currentUrl = (_webView.Source != null) ? _webView.Source.ToString() : null;
-            if (string.IsNullOrEmpty(currentUrl)) return;
+            string currentUrl = _targetUrl;
+            if (_webView != null && _webView.CoreWebView2 != null && !string.IsNullOrEmpty(_webView.Source.ToString()))
+            {
+                currentUrl = _webView.Source.ToString();
+            }
 
             string shareUrl = ReplaceLANUrl(currentUrl);
 
             try
             {
                 Form qrForm = new Form();
-                qrForm.Size = new Size(280, 335);
+                qrForm.Size = new Size(300, 360);
+                qrForm.MinimumSize = new Size(220, 260);
                 qrForm.Text = "扫码共享网页";
                 qrForm.FormBorderStyle = FormBorderStyle.None;
                 qrForm.StartPosition = FormStartPosition.CenterScreen;
@@ -772,7 +774,7 @@ namespace PPTWebBrowserAddIn
                 qrForm.BackColor = Color.FromArgb(246, 246, 246);
                 qrForm.KeyPreview = true;
 
-                // Auto close on Deactivate or ESC - NEVER freezes PPT/WebView2!
+                // Close on ESC or clicking outside
                 qrForm.Deactivate += (s, e) => {
                     try { qrForm.Close(); qrForm.Dispose(); } catch {}
                 };
@@ -787,6 +789,7 @@ namespace PPTWebBrowserAddIn
                 titlePanel.Height = 36;
                 titlePanel.Dock = DockStyle.Top;
                 titlePanel.BackColor = Color.FromArgb(246, 246, 246);
+                titlePanel.Cursor = Cursors.SizeAll;
 
                 // Close button (Red circle)
                 Button btnClose = new Button();
@@ -810,26 +813,118 @@ namespace PPTWebBrowserAddIn
                 lblTitle.Size = new Size(120, 20);
                 lblTitle.Location = new Point((qrForm.Width - lblTitle.Width) / 2, 8);
                 lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+                lblTitle.Cursor = Cursors.SizeAll;
                 titlePanel.Controls.Add(lblTitle);
                 qrForm.Controls.Add(titlePanel);
+
+                // Dragging Support for Title Bar & Label
+                Action<MouseEventArgs> handleDrag = (e) => {
+                    if (e.Button == MouseButtons.Left) {
+                        ReleaseCapture();
+                        SendMessage(qrForm.Handle, 0xA1, 2, 0); // WM_NCLBUTTONDOWN, HTCAPTION
+                    }
+                };
+                titlePanel.MouseDown += (s, e) => handleDrag(e);
+                lblTitle.MouseDown += (s, e) => handleDrag(e);
 
                 // QR Image PictureBox
                 PictureBox pb = new PictureBox();
                 pb.Size = new Size(240, 240);
-                pb.Location = new Point(20, 48);
+                pb.Location = new Point(30, 46);
                 pb.SizeMode = PictureBoxSizeMode.StretchImage;
                 pb.BackColor = Color.White;
                 qrForm.Controls.Add(pb);
 
                 // Hint label
                 Label lblHint = new Label();
-                lblHint.Text = "点击任意外部或按 ESC 即可关闭";
+                lblHint.Text = "按住标题栏拖动 · 拖动右下角调整大小";
                 lblHint.Font = new Font("Segoe UI", 8.5f);
                 lblHint.ForeColor = Color.FromArgb(140, 140, 145);
-                lblHint.Size = new Size(260, 20);
-                lblHint.Location = new Point(10, 300);
+                lblHint.Size = new Size(280, 20);
+                lblHint.Location = new Point(10, 328);
                 lblHint.TextAlign = ContentAlignment.MiddleCenter;
                 qrForm.Controls.Add(lblHint);
+
+                // Corner Resize Grip
+                Panel qrGrip = new Panel();
+                qrGrip.Size = new Size(18, 18);
+                qrGrip.Location = new Point(qrForm.ClientSize.Width - 18, qrForm.ClientSize.Height - 18);
+                qrGrip.BackColor = Color.Transparent;
+                qrGrip.Cursor = Cursors.SizeNWSE;
+                qrGrip.Paint += (s, e) => {
+                    e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using (var p = new Pen(Color.FromArgb(150, 150, 155), 1.2f))
+                    {
+                        e.Graphics.DrawLine(p, 13, 5, 5, 13);
+                        e.Graphics.DrawLine(p, 13, 9, 9, 13);
+                    }
+                };
+
+                bool isQrResizing = false;
+                Point qrResizeStartMouse = Point.Empty;
+                Size qrResizeStartSize = Size.Empty;
+
+                qrGrip.MouseDown += (s, e) => {
+                    if (e.Button == MouseButtons.Left) {
+                        isQrResizing = true;
+                        qrResizeStartMouse = Cursor.Position;
+                        qrResizeStartSize = qrForm.Size;
+                    }
+                };
+                qrGrip.MouseMove += (s, e) => {
+                    if (isQrResizing && (Control.MouseButtons & MouseButtons.Left) != 0) {
+                        Point cur = Cursor.Position;
+                        int dx = cur.X - qrResizeStartMouse.X;
+                        int dy = cur.Y - qrResizeStartMouse.Y;
+                        int nw = Math.Max(220, qrResizeStartSize.Width + dx);
+                        int nh = Math.Max(260, qrResizeStartSize.Height + dy);
+                        qrForm.Size = new Size(nw, nh);
+                    } else {
+                        isQrResizing = false;
+                    }
+                };
+                qrGrip.MouseUp += (s, e) => { isQrResizing = false; };
+                qrForm.Controls.Add(qrGrip);
+                qrGrip.BringToFront();
+
+                // Dynamic Layout on Resize
+                Action updateQrLayout = () => {
+                    int w = qrForm.ClientSize.Width;
+                    int h = qrForm.ClientSize.Height;
+                    titlePanel.Width = w;
+                    lblTitle.Location = new Point((w - lblTitle.Width) / 2, 8);
+                    
+                    int availableH = h - 36 - 32;
+                    int availableW = w - 32;
+                    int qrSide = Math.Max(120, Math.Min(availableW, availableH));
+                    
+                    pb.Size = new Size(qrSide, qrSide);
+                    pb.Location = new Point((w - qrSide) / 2, 36 + (availableH - qrSide) / 2);
+                    
+                    lblHint.Location = new Point(10, h - 26);
+                    lblHint.Width = w - 20;
+                    
+                    qrGrip.Location = new Point(w - 18, h - 18);
+                    qrGrip.BringToFront();
+                    
+                    try {
+                        IntPtr hRgn = CreateRoundRectRgn(0, 0, w, h, 16, 16);
+                        qrForm.Region = Region.FromHrgn(hRgn);
+                        DeleteObject(hRgn);
+                    } catch {}
+                };
+
+                qrForm.Resize += (s, e) => updateQrLayout();
+
+                // Mouse Wheel Zoom for QR Window
+                MouseEventHandler wheelHandler = (s, e) => {
+                    int delta = e.Delta > 0 ? 30 : -30;
+                    int nw = Math.Max(220, Math.Min(800, qrForm.Width + delta));
+                    int nh = Math.Max(260, Math.Min(900, qrForm.Height + (int)(delta * 1.2)));
+                    qrForm.Size = new Size(nw, nh);
+                };
+                qrForm.MouseWheel += wheelHandler;
+                pb.MouseWheel += wheelHandler;
 
                 // Generate QR code locally offline using QRCoder
                 using (var qrGenerator = new QRCoder.QRCodeGenerator())
@@ -840,12 +935,7 @@ namespace PPTWebBrowserAddIn
                     pb.Image = new Bitmap(qrCodeImage);
                 }
 
-                // Apply rounded corners
-                IntPtr hRgn = CreateRoundRectRgn(0, 0, qrForm.Width, qrForm.Height, 16, 16);
-                qrForm.Region = Region.FromHrgn(hRgn);
-                DeleteObject(hRgn);
-
-                // Show NON-MODAL so it never deadlocks the PPT message loop
+                updateQrLayout();
                 qrForm.Show(this);
             }
             catch (Exception ex)
@@ -1127,34 +1217,10 @@ namespace PPTWebBrowserAddIn
                     }
                 };
 
-                // Create QR code scan button
-                _btnShare = new Button();
-                _btnShare.Size = new Size(24, 24);
-                _btnShare.FlatStyle = FlatStyle.Flat;
-                _btnShare.FlatAppearance.BorderSize = 0;
-                _btnShare.BackColor = Color.Transparent;
-                _btnShare.Cursor = Cursors.Hand;
-                _btnShare.Click += (s, e) => { ShareViaQrCode(); };
-                _btnShare.Paint += (s, e) => {
-                    e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    using (var pen = new Pen(Color.FromArgb(74, 74, 78), 1.5f))
-                    {
-                        e.Graphics.DrawRectangle(pen, 5, 5, 14, 14);
-                        using (var brush = new SolidBrush(Color.FromArgb(74, 74, 78)))
-                        {
-                            e.Graphics.FillRectangle(brush, 7, 7, 3, 3);
-                            e.Graphics.FillRectangle(brush, 14, 7, 3, 3);
-                            e.Graphics.FillRectangle(brush, 7, 14, 3, 3);
-                            e.Graphics.FillRectangle(brush, 13, 13, 2, 2);
-                        }
-                    }
-                };
-
                 toolTip.SetToolTip(btnLiquidGlass, "关闭 (Close)");
                 toolTip.SetToolTip(_btnRefresh, "最小化 (Minimize)");
                 toolTip.SetToolTip(_btnFullScreen, "全屏 (Fullscreen)");
                 toolTip.SetToolTip(_btnInk, "标注 (Ink Draw)");
-                toolTip.SetToolTip(_btnShare, "扫码共享 (QR Share)");
 
                 // Back Button (Modern Apple Arrow Icon)
                 _btnBack = new Button();
@@ -1281,7 +1347,7 @@ namespace PPTWebBrowserAddIn
                 };
 
                 _navPanel.Controls.AddRange(new Control[] { 
-                    btnLiquidGlass, _btnRefresh, _btnFullScreen, _btnBack, _btnForward, _btnInk, _btnShare, addressPanel, _btnZoomOut, _btnZoomIn 
+                    btnLiquidGlass, _btnRefresh, _btnFullScreen, _btnBack, _btnForward, _btnInk, addressPanel, _btnZoomOut, _btnZoomIn 
                 });
                 this.Controls.Add(_navPanel);
 
