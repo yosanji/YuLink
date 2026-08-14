@@ -715,6 +715,66 @@ namespace PPTWebBrowserAddIn
             });
         }
 
+        public void RepositionFormDirect(WebBrowserForm form)
+        {
+            if (form == null || form.IsDisposed) return;
+            SafeInvoke(delegate()
+            {
+                try
+                {
+                    IntPtr slideshowHwnd = IntPtr.Zero;
+                    if (Application.SlideShowWindows != null && Application.SlideShowWindows.Count > 0)
+                    {
+                        slideshowHwnd = (IntPtr)(uint)Application.SlideShowWindows[1].HWND;
+                    }
+
+                    if (form == _liveCastForm)
+                    {
+                        if (form.IsMaximized)
+                        {
+                            if (slideshowHwnd != IntPtr.Zero)
+                            {
+                                RECT winRect;
+                                if (GetClientRect(slideshowHwnd, out winRect))
+                                {
+                                    int maxW = winRect.Right - winRect.Left;
+                                    int maxH = winRect.Bottom - winRect.Top;
+                                    POINT maxPt = new POINT { X = 0, Y = 0 };
+                                    ClientToScreen(slideshowHwnd, ref maxPt);
+                                    form.Location = new Point(maxPt.X, maxPt.Y);
+                                    form.Size = new Size(maxW, maxH);
+                                }
+                            }
+                            else
+                            {
+                                var screen = Screen.FromControl(form);
+                                form.Location = screen.WorkingArea.Location;
+                                form.Size = screen.WorkingArea.Size;
+                            }
+                        }
+                        else
+                        {
+                            var screen = Screen.FromControl(form);
+                            int w = (int)(screen.WorkingArea.Width * 0.85);
+                            int h = (int)(screen.WorkingArea.Height * 0.85);
+                            int x = screen.WorkingArea.Left + (screen.WorkingArea.Width - w) / 2;
+                            int y = screen.WorkingArea.Top + (screen.WorkingArea.Height - h) / 2;
+                            form.Location = new Point(x, y);
+                            form.Size = new Size(w, h);
+                        }
+                        form.BringToFront();
+                        return;
+                    }
+
+                    if (_currentSlide != null)
+                    {
+                        RepositionWebViewForSlide(_currentSlide, slideshowHwnd);
+                    }
+                }
+                catch { }
+            });
+        }
+
         public void TriggerReposition()
         {
             if (_syncContext != null)

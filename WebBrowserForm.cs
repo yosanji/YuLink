@@ -819,6 +819,17 @@ namespace PPTWebBrowserAddIn
 
         public bool IsMaximized { get; set; }
 
+        public void ToggleMaximize()
+        {
+            this.IsMaximized = !this.IsMaximized;
+            if (Globals.ThisAddIn != null)
+            {
+                Globals.ThisAddIn.RepositionFormDirect(this);
+            }
+            UpdateZoomFactor();
+            ApplyRoundedCorners();
+        }
+
         public WebBrowserForm(string url)
         {
             InitializeComponent();

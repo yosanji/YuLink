@@ -1103,26 +1103,37 @@ namespace PPTWebBrowserAddIn
             top: 18px;
             right: 20px;
             display: flex;
-            gap: 8px;
+            gap: 10px;
             z-index: 100;
         }
-        .hud-btn {
+        .hud-circle-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(0, 0, 0, 0.1);
             color: #1d1d1f;
-            padding: 7px 14px;
-            border-radius: 16px;
-            font-size: 13px;
-            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            transition: transform 0.1s ease;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .hud-btn:active { transform: scale(0.96); }
-        .hud-btn.close { color: #ff3b30; }
-        .hud-btn.close:active { background: #ff3b30; color: #fff; }
+        .hud-circle-btn:hover {
+            transform: scale(1.08);
+            background: #ffffff;
+        }
+        .hud-circle-btn:active {
+            transform: scale(0.92);
+        }
+        .hud-circle-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #1d1d1f;
+        }
         
         .empty-hint {
             color: #8e8e93;
@@ -1133,45 +1144,15 @@ namespace PPTWebBrowserAddIn
             pointer-events: none;
         }
         .empty-hint svg { width: 48px; height: 48px; fill: #636366; }
-
-        /* QR Share Modal for Students */
-        #qrModal {
-            display: none;
-            position: absolute;
-            top: 60px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            padding: 16px;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            color: #1d1d1f;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            z-index: 200;
-        }
-        #qrImg { width: 180px; height: 180px; border-radius: 12px; }
-        .qr-title { font-size: 13px; font-weight: 700; color: #1d1d1f; }
-        .qr-sub { font-size: 11px; color: #8e8e93; }
     </style>
 </head>
 <body>
-    <div id=""viewport"" ondblclick=""toggleFullScreen()"">
+    <div id=""viewport"">
         <div class=""hud-tools"">
-            <button class=""hud-btn"" onclick=""toggleShareQR()"">扫码看图</button>
-            <button class=""hud-btn"" onclick=""toggleFullScreen()"">全屏</button>
-            <button class=""hud-btn"" onclick=""zoomIn()"">放大</button>
-            <button class=""hud-btn"" onclick=""zoomOut()"">缩小</button>
-            <button class=""hud-btn"" onclick=""resetView()"">复位</button>
-            <button class=""hud-btn"" onclick=""rotateImage()"">旋转</button>
-            <button class=""hud-btn close"" onclick=""stopCast()"">退出</button>
-        </div>
-
-        <div id=""qrModal"">
-            <div class=""qr-title"">扫码在手机查看作业原图</div>
-            <img id=""qrImg"" src="""" alt=""QR Code"" />
-            <div class=""qr-sub"">仅供浏览图片 · 无遥控功能</div>
+            <!-- Pure Apple Vector Rotate Button (Zero text noise) -->
+            <button class=""hud-circle-btn"" onclick=""rotateImage()"" title=""旋转 90°"">
+                <svg viewBox=""0 0 24 24""><path d=""M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.6-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37.5 6 3.41 6 6.91 0 1.25-.34 2.43-.93 3.44l1.46 1.46C20.45 16.38 21 14.77 21 13c0-4.42-3.21-8.08-7.39-8.73z""/></svg>
+            </button>
         </div>
 
         <div id=""emptyState"" class=""empty-hint"">
@@ -1198,27 +1179,6 @@ namespace PPTWebBrowserAddIn
         const rotateScaleLayer = document.getElementById('rotateScaleLayer');
         const img = document.getElementById('castImage');
         const emptyState = document.getElementById('emptyState');
-        const qrModal = document.getElementById('qrModal');
-
-        function toggleFullScreen() {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                } else if (document.documentElement.webkitRequestFullscreen) {
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) {
-                    document.documentElement.msRequestFullscreen();
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-            }
-        }
 
         function updatePan() {
             panLayer.style.transform = 'translate3d(' + posX + 'px, ' + posY + 'px, 0)';
@@ -1236,33 +1196,12 @@ namespace PPTWebBrowserAddIn
             updateTransform();
         }
 
-        function rotateImage() {
+        async function rotateImage() {
             currentRotation = (currentRotation + 90) % 360;
             updateTransform();
-        }
-
-        function zoomIn() {
-            currentScale = Math.min(6.0, currentScale * 1.25);
-            updateTransform();
-        }
-
-        function zoomOut() {
-            currentScale = Math.max(0.4, currentScale / 1.25);
-            updateTransform();
-        }
-
-        function stopCast() {
-            fetch('/api/stop_cast', { method: 'POST' });
-        }
-
-        function toggleShareQR() {
-            if (qrModal.style.display === 'flex') {
-                qrModal.style.display = 'none';
-            } else {
-                const photoUrl = window.location.origin + '/view_photo';
-                document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(photoUrl);
-                qrModal.style.display = 'flex';
-            }
+            try {
+                await fetch('/api/rotate_cast', { method: 'POST' });
+            } catch (e) {}
         }
 
         // Pointer Drag Engine (Press to Drag -> Release to Stop)
@@ -1273,8 +1212,7 @@ namespace PPTWebBrowserAddIn
         let initialScale = 1;
 
         viewport.addEventListener('pointerdown', (e) => {
-            if (e.target.tagName === 'BUTTON' || qrModal.contains(e.target)) return;
-            if (qrModal.style.display === 'flex') qrModal.style.display = 'none';
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
             e.preventDefault();
             isDown = true;
             viewport.classList.add('dragging');
@@ -1354,13 +1292,13 @@ namespace PPTWebBrowserAddIn
                         img.src = data.image;
                         img.style.display = 'block';
                         emptyState.style.display = 'none';
-                    } else if (data.rotation !== currentRotation) {
+                    } else if (data.rotation !== undefined && data.rotation !== currentRotation) {
                         currentRotation = data.rotation;
                         updateTransform();
                     }
                 }
             } catch (e) {}
-            setTimeout(pollCastData, 120);
+            setTimeout(pollCastData, 150);
         }
 
         pollCastData();
@@ -1369,10 +1307,6 @@ namespace PPTWebBrowserAddIn
 </html>";
         }
 
-        // =========================================================================
-        // Pure Minimalist Modern Apple Pro Web Controller HTML
-        // Minimalist "网络共享" (Zero Explanation Text) + Realtime Volume & Camera
-        // =========================================================================
         private string GetControlPageHtml()
         {
             return @"<!DOCTYPE html>
