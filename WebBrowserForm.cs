@@ -244,162 +244,145 @@ namespace PPTWebBrowserAddIn
                             let oldMenu = document.getElementById('ppt-web-floating-menu-container');
                             if (oldMenu) return;
 
-                            const css = `
-                                #ppt-web-floating-menu-container {
-                                    position: fixed;
-                                    bottom: 90px;
-                                    right: 36px;
-                                    z-index: 1000000;
-                                    user-select: none;
-                                    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-                                    width: 58px;
-                                    height: 58px;
-                                }
-                                .ppt-skeuo-circle {
-                                    width: 58px;
-                                    height: 58px;
-                                    border-radius: 50%;
-                                    background: linear-gradient(145deg, #ffffff, #e6e6eb);
-                                    border: 1.5px solid rgba(255, 255, 255, 0.9);
-                                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.95);
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    cursor: grab;
-                                    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
-                                }
-                                .ppt-skeuo-circle:hover {
-                                    transform: scale(1.08);
-                                    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22), inset 0 2px 4px rgba(255, 255, 255, 1);
-                                }
-                                .ppt-skeuo-circle:active {
-                                    cursor: grabbing;
-                                    transform: scale(0.94);
-                                }
-                                .ppt-skeuo-circle svg {
-                                    width: 28px;
-                                    height: 28px;
-                                    fill: #3a3a3c;
-                                }
-                                .ppt-floating-tray {
-                                    position: absolute;
-                                    top: 50%;
-                                    display: flex;
-                                    align-items: center;
-                                    height: 56px;
-                                    white-space: nowrap;
-                                    background: rgba(255, 255, 255, 0.92);
-                                    backdrop-filter: blur(25px);
-                                    -webkit-backdrop-filter: blur(25px);
-                                    border-radius: 28px;
-                                    border: 1px solid rgba(210, 210, 215, 0.8);
-                                    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
-                                    padding: 0 16px;
-                                    opacity: 0;
-                                    pointer-events: none;
-                                    /* default: expand to the LEFT of the button */
-                                    right: calc(100% + 14px);
-                                    left: auto;
-                                    transform: translateY(-50%) scaleX(0.85);
-                                    transform-origin: right center;
-                                    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-                                                transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-                                }
-                                .ppt-floating-tray.expand-right {
-                                    right: auto;
-                                    left: calc(100% + 14px);
-                                    transform: translateY(-50%) scaleX(0.85);
-                                    transform-origin: left center;
-                                }
-                                .ppt-floating-tray.expanded {
-                                    opacity: 1;
-                                    transform: translateY(-50%) scaleX(1);
-                                    pointer-events: auto;
-                                }
-                                .ppt-tray-divider {
-                                    width: 1.5px;
-                                    height: 26px;
-                                    background: rgba(200, 200, 205, 0.8);
-                                    margin: 0 10px;
-                                }
-                                .ppt-color-dot {
-                                    width: 22px;
-                                    height: 22px;
-                                    border-radius: 50%;
-                                    margin: 0 6px;
-                                    cursor: pointer;
-                                    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25), 0 2px 5px rgba(0,0,0,0.12);
-                                    transition: transform 0.15s ease, box-shadow 0.15s ease;
-                                }
-                                .ppt-color-dot:hover {
-                                    transform: scale(1.22);
-                                }
-                                .ppt-color-dot.active {
-                                    box-shadow: 0 0 0 3px #007aff, inset 0 1px 3px rgba(0,0,0,0.25);
-                                }
-                                .ppt-size-dot {
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    width: 30px;
-                                    height: 30px;
-                                    margin: 0 4px;
-                                    cursor: pointer;
-                                    border-radius: 50%;
-                                    transition: background 0.15s ease;
-                                }
-                                .ppt-size-dot:hover {
-                                    background: rgba(0, 0, 0, 0.06);
-                                }
-                                .ppt-size-dot.active {
-                                    background: rgba(0, 122, 255, 0.14);
-                                }
-                                .ppt-size-dot::after {
-                                    content: '';
-                                    display: block;
-                                    background: #3a3a3c;
-                                    border-radius: 50%;
-                                }
-                                .ppt-size-dot[data-size='2']::after { width: 4px; height: 4px; }
-                                .ppt-size-dot[data-size='5']::after { width: 8px; height: 8px; }
-                                .ppt-size-dot[data-size='10']::after { width: 14px; height: 14px; }
-                                
-                                .ppt-tray-btn {
-                                    width: 36px;
-                                    height: 36px;
-                                    border-radius: 10px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    cursor: pointer;
-                                    margin: 0 4px;
-                                    transition: background 0.15s ease, transform 0.12s ease;
-                                }
-                                .ppt-tray-btn:hover {
-                                    background: rgba(0, 0, 0, 0.07);
-                                    transform: scale(1.08);
-                                }
-                                .ppt-tray-btn:active {
-                                    transform: scale(0.92);
-                                }
-                                .ppt-tray-btn.active {
-                                    background: rgba(255, 59, 48, 0.16);
-                                }
-                                .ppt-tray-btn svg {
-                                    width: 20px;
-                                    height: 20px;
-                                    fill: #3a3a3c;
-                                }
-                                .ppt-tray-btn.active svg {
-                                    fill: #ff3b30;
-                                }
-                            `;
+                            const css = [
+                                '#ppt-web-floating-menu-container {',
+                                '    position: fixed;',
+                                '    bottom: 90px;',
+                                '    right: 36px;',
+                                '    z-index: 1000000;',
+                                '    user-select: none;',
+                                '    font-family: -apple-system, BlinkMacSystemFont, ""SF Pro Display"", ""Segoe UI"", Roboto, sans-serif;',
+                                '    width: 58px;',
+                                '    height: 58px;',
+                                '}',
+                                '.ppt-skeuo-circle {',
+                                '    width: 58px;',
+                                '    height: 58px;',
+                                '    border-radius: 50%;',
+                                '    background: radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.98), rgba(245, 247, 252, 0.75) 45%, rgba(220, 226, 240, 0.55) 80%, rgba(205, 215, 235, 0.75));',
+                                '    backdrop-filter: blur(32px) saturate(220%);',
+                                '    -webkit-backdrop-filter: blur(32px) saturate(220%);',
+                                '    border: 1.5px solid rgba(255, 255, 255, 0.92);',
+                                '    box-shadow: 0 16px 36px -4px rgba(0, 24, 64, 0.22), 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 2.5px 5px rgba(255, 255, 255, 0.95), inset 0 -2px 4px rgba(0, 20, 50, 0.08);',
+                                '    display: flex;',
+                                '    align-items: center;',
+                                '    justify-content: center;',
+                                '    cursor: grab;',
+                                '    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;',
+                                '}',
+                                '.ppt-skeuo-circle:hover {',
+                                '    transform: scale(1.08) translateY(-2px);',
+                                '    box-shadow: 0 22px 44px -4px rgba(0, 32, 80, 0.28), 0 6px 16px rgba(0, 0, 0, 0.1), inset 0 3px 6px rgba(255, 255, 255, 1);',
+                                '}',
+                                '.ppt-skeuo-circle:active {',
+                                '    cursor: grabbing;',
+                                '    transform: scale(0.94);',
+                                '}',
+                                '.ppt-skeuo-circle svg {',
+                                '    width: 28px;',
+                                '    height: 28px;',
+                                '    fill: #1d1d1f;',
+                                '    filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.8));',
+                                '}',
+                                '.ppt-floating-tray {',
+                                '    position: absolute;',
+                                '    top: 50%;',
+                                '    display: flex;',
+                                '    align-items: center;',
+                                '    height: 56px;',
+                                '    white-space: nowrap;',
+                                '    background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 247, 253, 0.76));',
+                                '    backdrop-filter: blur(32px) saturate(220%);',
+                                '    -webkit-backdrop-filter: blur(32px) saturate(220%);',
+                                '    border-radius: 28px;',
+                                '    border: 1.5px solid rgba(255, 255, 255, 0.92);',
+                                '    box-shadow: 0 20px 48px -6px rgba(0, 24, 64, 0.2), 0 6px 18px rgba(0, 0, 0, 0.08), inset 0 1.5px 3px rgba(255, 255, 255, 0.95);',
+                                '    padding: 0 16px;',
+                                '    opacity: 0;',
+                                '    pointer-events: none;',
+                                '    right: calc(100% + 14px);',
+                                '    left: auto;',
+                                '    transform: translateY(-50%) scaleX(0.85);',
+                                '    transform-origin: right center;',
+                                '    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);',
+                                '}',
+                                '.ppt-floating-tray.expand-right {',
+                                '    right: auto;',
+                                '    left: calc(100% + 14px);',
+                                '    transform: translateY(-50%) scaleX(0.85);',
+                                '    transform-origin: left center;',
+                                '}',
+                                '.ppt-floating-tray.expanded {',
+                                '    opacity: 1;',
+                                '    transform: translateY(-50%) scaleX(1);',
+                                '    pointer-events: auto;',
+                                '}',
+                                '.ppt-tray-divider {',
+                                '    width: 1.5px;',
+                                '    height: 26px;',
+                                '    background: rgba(180, 185, 200, 0.6);',
+                                '    margin: 0 10px;',
+                                '}',
+                                '.ppt-color-dot {',
+                                '    width: 22px;',
+                                '    height: 22px;',
+                                '    border-radius: 50%;',
+                                '    margin: 0 6px;',
+                                '    cursor: pointer;',
+                                '    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.15);',
+                                '    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;',
+                                '}',
+                                '.ppt-color-dot:hover { transform: scale(1.24); }',
+                                '.ppt-color-dot.active {',
+                                '    box-shadow: 0 0 0 3px #007aff, 0 0 0 4.5px rgba(255,255,255,0.8), inset 0 1px 3px rgba(0,0,0,0.3);',
+                                '    transform: scale(1.1);',
+                                '}',
+                                '.ppt-size-dot {',
+                                '    display: flex;',
+                                '    align-items: center;',
+                                '    justify-content: center;',
+                                '    width: 30px;',
+                                '    height: 30px;',
+                                '    margin: 0 4px;',
+                                '    cursor: pointer;',
+                                '    border-radius: 50%;',
+                                '    transition: background 0.15s ease, transform 0.15s ease;',
+                                '}',
+                                '.ppt-size-dot:hover { background: rgba(0, 0, 0, 0.07); transform: scale(1.12); }',
+                                '.ppt-size-dot.active { background: rgba(0, 122, 255, 0.16); transform: scale(1.1); }',
+                                '.ppt-size-dot::after {',
+                                '    content: """";',
+                                '    display: block;',
+                                '    background: #1d1d1f;',
+                                '    border-radius: 50%;',
+                                '}',
+                                '.ppt-size-dot[data-size=""2""]::after { width: 4px; height: 4px; }',
+                                '.ppt-size-dot[data-size=""5""]::after { width: 8px; height: 8px; }',
+                                '.ppt-size-dot[data-size=""10""]::after { width: 14px; height: 14px; }',
+                                '.ppt-tray-btn {',
+                                '    width: 36px;',
+                                '    height: 36px;',
+                                '    border-radius: 10px;',
+                                '    display: flex;',
+                                '    align-items: center;',
+                                '    justify-content: center;',
+                                '    cursor: pointer;',
+                                '    margin: 0 4px;',
+                                '    transition: background 0.15s ease, transform 0.12s ease;',
+                                '}',
+                                '.ppt-tray-btn:hover { background: rgba(0, 0, 0, 0.08); transform: scale(1.12); }',
+                                '.ppt-tray-btn:active { transform: scale(0.92); }',
+                                '.ppt-tray-btn.active { background: rgba(255, 59, 48, 0.18); }',
+                                '.ppt-tray-btn svg { width: 20px; height: 20px; fill: #1d1d1f; }',
+                                '.ppt-tray-btn.active svg { fill: #ff3b30; }'
+                            ].join('\n');
 
                             const style = document.createElement('style');
                             style.id = 'ppt-web-floating-menu-style';
                             style.innerHTML = css;
                             document.head.appendChild(style);
 
+                            // High-DPI Retina Canvas & Bézier Smooth Ink Drawing Engine
                             let canvas = document.getElementById('ppt-web-ink-canvas');
                             if (!canvas) {
                                 canvas = document.createElement('canvas');
@@ -410,27 +393,40 @@ namespace PPTWebBrowserAddIn
                                 canvas.style.width = '100vw';
                                 canvas.style.height = '100vh';
                                 canvas.style.zIndex = '999999';
-                                canvas.style.cursor = 'crosshair';
                                 canvas.style.pointerEvents = 'auto';
-                                canvas.width = window.innerWidth;
-                                canvas.height = window.innerHeight;
                                 document.body.appendChild(canvas);
                             }
                             canvas.style.display = 'block';
 
+                            const dpr = window.devicePixelRatio || 1;
+                            canvas.width = window.innerWidth * dpr;
+                            canvas.height = window.innerHeight * dpr;
+
                             const ctx = canvas.getContext('2d');
-                            let inkColor = 'rgba(255, 59, 48, 0.85)';
-                            let inkWidth = 5;
+                            ctx.scale(dpr, dpr);
+
+                            let inkColor = 'rgba(255, 59, 48, 0.9)';
+                            let inkHex = '#ff3b30';
+                            let inkWidth = 4.5;
                             let isEraser = false;
 
-                            ctx.strokeStyle = inkColor;
-                            ctx.lineWidth = inkWidth;
-                            ctx.lineCap = 'round';
-                            ctx.lineJoin = 'round';
+                            // SVG Stylus Pen & Eraser Custom Cursors
+                            const getPenCursor = (hex) => {
+                                const encHex = encodeURIComponent(hex || '#ff3b30');
+                                const svg = '<svg xmlns=""http://www.w3.org/2000/svg"" width=""32"" height=""32"" viewBox=""0 0 32 32""><path d=""M2 30L8 28L26 10C27.1 8.9 27.1 7.1 26 6L24 4C22.9 2.9 21.1 2.9 20 4L2 22L0 32L10 30z"" fill=""%23ffffff"" stroke=""%231d1d1f"" stroke-width=""1.6"" stroke-linejoin=""round""/><path d=""M20 4L26 10"" stroke=""%231d1d1f"" stroke-width=""1.6""/><path d=""M6 24L8 26"" stroke=""' + encHex + '"" stroke-width=""2.5""/><circle cx=""2"" cy=""30"" r=""2"" fill=""' + encHex + '""/></svg>';
+                                return 'url(""data:image/svg+xml;utf8,' + svg + '"") 2 30, crosshair';
+                            };
+
+                            const eraserCursor = 'url(""data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 32 32\'><rect x=\'6\' y=\'8\' width=\'20\' height=\'14\' rx=\'3\' transform=\'rotate(35 16 15)\' fill=\'%23ffffff\' stroke=\'%231d1d1f\' stroke-width=\'1.8\'/><path d=\'M11 11L18 21\' transform=\'rotate(35 16 15)\' stroke=\'%23ff3b30\' stroke-width=\'2.5\'/></svg>"") 4 26, auto';
+
+                            const updateCursor = () => {
+                                canvas.style.cursor = isEraser ? eraserCursor : getPenCursor(inkHex);
+                            };
+                            updateCursor();
 
                             let drawing = false;
-                            let lastX = 0;
-                            let lastY = 0;
+                            let points = [];
+                            let smoothedWidth = inkWidth;
                             let history = [];
 
                             const pushState = () => {
@@ -438,33 +434,65 @@ namespace PPTWebBrowserAddIn
                                 history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
                             };
 
+                            ctx.lineCap = 'round';
+                            ctx.lineJoin = 'round';
+
                             canvas.addEventListener('mousedown', (e) => {
                                 pushState();
                                 drawing = true;
-                                lastX = e.clientX;
-                                lastY = e.clientY;
+                                points = [{ x: e.clientX, y: e.clientY, time: Date.now() }];
+                                smoothedWidth = inkWidth;
+
+                                ctx.beginPath();
+                                ctx.arc(e.clientX, e.clientY, (isEraser ? inkWidth * 2 : inkWidth / 2), 0, Math.PI * 2);
+                                ctx.fillStyle = isEraser ? 'rgba(0,0,0,1)' : inkColor;
+                                ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+                                ctx.fill();
                             });
 
                             canvas.addEventListener('mousemove', (e) => {
                                 if (!drawing) return;
-                                ctx.beginPath();
-                                ctx.moveTo(lastX, lastY);
-                                ctx.lineTo(e.clientX, e.clientY);
-                                if (isEraser) {
-                                    ctx.globalCompositeOperation = 'destination-out';
-                                    ctx.lineWidth = inkWidth * 3;
-                                } else {
-                                    ctx.globalCompositeOperation = 'source-over';
-                                    ctx.lineWidth = inkWidth;
-                                    ctx.strokeStyle = inkColor;
+                                const curPt = { x: e.clientX, y: e.clientY, time: Date.now() };
+                                points.push(curPt);
+
+                                if (points.length < 3) {
+                                    const b = points[0];
+                                    ctx.beginPath();
+                                    ctx.arc(b.x, b.y, (isEraser ? inkWidth * 2 : inkWidth / 2), 0, Math.PI * 2);
+                                    ctx.fill();
+                                    return;
                                 }
+
+                                const p0 = points[points.length - 3];
+                                const p1 = points[points.length - 2];
+                                const p2 = points[points.length - 1];
+
+                                const xc1 = (p0.x + p1.x) / 2;
+                                const yc1 = (p0.y + p1.y) / 2;
+                                const xc2 = (p1.x + p2.x) / 2;
+                                const yc2 = (p1.y + p2.y) / 2;
+
+                                const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                                const timeDelta = Math.max(1, p2.time - p1.time);
+                                const speed = dist / timeDelta;
+                                const targetW = isEraser 
+                                    ? inkWidth * 4.5 
+                                    : Math.max(inkWidth * 0.75, Math.min(inkWidth * 1.3, inkWidth / (speed * 0.35 + 0.85)));
+                                
+                                smoothedWidth = smoothedWidth * 0.65 + targetW * 0.35;
+
+                                ctx.beginPath();
+                                ctx.moveTo(xc1, yc1);
+                                ctx.quadraticCurveTo(p1.x, p1.y, xc2, yc2);
+
+                                ctx.strokeStyle = isEraser ? 'rgba(0,0,0,1)' : inkColor;
+                                ctx.lineWidth = smoothedWidth;
+                                ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
                                 ctx.stroke();
-                                lastX = e.clientX;
-                                lastY = e.clientY;
                             });
 
-                            canvas.addEventListener('mouseup', () => drawing = false);
-                            canvas.addEventListener('mouseleave', () => drawing = false);
+                            canvas.addEventListener('mouseup', () => { drawing = false; points = []; });
+                            canvas.addEventListener('mouseleave', () => { drawing = false; points = []; });
 
                             window.addEventListener('resize', () => {
                                 const tempCanvas = document.createElement('canvas');
@@ -473,10 +501,12 @@ namespace PPTWebBrowserAddIn
                                 const tempCtx = tempCanvas.getContext('2d');
                                 tempCtx.drawImage(canvas, 0, 0);
 
-                                canvas.width = window.innerWidth;
-                                canvas.height = window.innerHeight;
+                                const d = window.devicePixelRatio || 1;
+                                canvas.width = window.innerWidth * d;
+                                canvas.height = window.innerHeight * d;
 
-                                ctx.drawImage(tempCanvas, 0, 0);
+                                ctx.scale(d, d);
+                                ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width / d, tempCanvas.height / d);
                                 ctx.strokeStyle = inkColor;
                                 ctx.lineWidth = inkWidth;
                                 ctx.lineCap = 'round';
@@ -488,34 +518,34 @@ namespace PPTWebBrowserAddIn
 
                             const tray = document.createElement('div');
                             tray.className = 'ppt-floating-tray';
-                            tray.innerHTML = `
-                                <div class=""ppt-color-dot active"" style=""background:#ff3b30"" data-color=""rgba(255,59,48,0.85)""></div>
-                                <div class=""ppt-color-dot"" style=""background:#007aff"" data-color=""rgba(0,122,255,0.85)""></div>
-                                <div class=""ppt-color-dot"" style=""background:#34c759"" data-color=""rgba(52,199,89,0.85)""></div>
-                                <div class=""ppt-color-dot"" style=""background:#1c1c1e"" data-color=""rgba(28,28,30,0.85)""></div>
-                                <div class=""ppt-desktop-divider ppt-tray-divider""></div>
-                                <div class=""ppt-size-dot"" data-size=""2""></div>
-                                <div class=""ppt-size-dot active"" data-size=""5""></div>
-                                <div class=""ppt-size-dot"" data-size=""10""></div>
-                                <div class=""ppt-desktop-divider ppt-tray-divider""></div>
-                                <div class=""ppt-tray-btn"" id=""ppt-btn-undo"" title=""撤销"">
-                                    <svg viewBox=""0 0 24 24""><path d=""M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z""/></svg>
-                                </div>
-                                <div class=""ppt-tray-btn"" id=""ppt-btn-eraser"" title=""橡皮擦"">
-                                    <svg viewBox=""0 0 24 24""><path d=""M16.24 7.56l4.2 4.2c.78.78.78 2.05 0 2.83L14.7 20.3c-.78.78-2.05.78-2.83 0l-8.48-8.48c-.78-.78-.78-2.05 0-2.83L9.12 3.25c.78-.78 2.05-.78 2.83 0l4.29 4.31zm-7.07 7.07l2.83 2.83 4.24-4.24-2.83-2.83-4.24 4.24z""/></svg>
-                                </div>
-                                <div class=""ppt-tray-btn"" id=""ppt-btn-clear"" title=""清空"">
-                                    <svg viewBox=""0 0 24 24""><path d=""M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z""/></svg>
-                                </div>
-                                <div class=""ppt-tray-btn"" id=""ppt-btn-share"" title=""扫码共享网页"">
-                                    <svg viewBox=""0 0 24 24""><path d=""M4 4h6v6H4V4zm2 2v2h2V6H6zm0 7h2v2H6v-2zm2 2H6v2h2v-2zm8-11h6v6h-6V4zm2 2v2h2V6h-2zM4 14h6v6H4v-6zm2 2v2h2v-2H6zm10-12h2v2h-2V4zm0 8h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4-4h2v2h-2v-2zm0-4h2v2h-2v-2zm2-2h2v2h-2V8zm-2-2h2v2h-2V6zm8 8h2v2h-2v-2zm0 4h2v2h-2v-2z""/></svg>
-                                </div>
-                            `;
+                            tray.innerHTML = [
+                                '<div class=""ppt-color-dot active"" style=""background:#ff3b30"" data-color=""rgba(255,59,48,0.9)""></div>',
+                                '<div class=""ppt-color-dot"" style=""background:#007aff"" data-color=""rgba(0,122,255,0.9)""></div>',
+                                '<div class=""ppt-color-dot"" style=""background:#34c759"" data-color=""rgba(52,199,89,0.9)""></div>',
+                                '<div class=""ppt-color-dot"" style=""background:#1c1c1e"" data-color=""rgba(28,28,30,0.9)""></div>',
+                                '<div class=""ppt-desktop-divider ppt-tray-divider""></div>',
+                                '<div class=""ppt-size-dot"" data-size=""2""></div>',
+                                '<div class=""ppt-size-dot active"" data-size=""5""></div>',
+                                '<div class=""ppt-size-dot"" data-size=""10""></div>',
+                                '<div class=""ppt-desktop-divider ppt-tray-divider""></div>',
+                                '<div class=""ppt-tray-btn"" id=""ppt-btn-undo"" title=""撤销"">',
+                                '    <svg viewBox=""0 0 24 24""><path d=""M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z""/></svg>',
+                                '</div>',
+                                '<div class=""ppt-tray-btn"" id=""ppt-btn-eraser"" title=""橡皮擦"">',
+                                '    <svg viewBox=""0 0 24 24""><path d=""M16.24 7.56l4.2 4.2c.78.78.78 2.05 0 2.83L14.7 20.3c-.78.78-2.05.78-2.83 0l-8.48-8.48c-.78-.78-.78-2.05 0-2.83L9.12 3.25c.78-.78 2.05-.78 2.83 0l4.29 4.31zm-7.07 7.07l2.83 2.83 4.24-4.24-2.83-2.83-4.24 4.24z""/></svg>',
+                                '</div>',
+                                '<div class=""ppt-tray-btn"" id=""ppt-btn-clear"" title=""清空"">',
+                                '    <svg viewBox=""0 0 24 24""><path d=""M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z""/></svg>',
+                                '</div>',
+                                '<div class=""ppt-tray-btn"" id=""ppt-btn-share"" title=""扫码共享网页"">',
+                                '    <svg viewBox=""0 0 24 24""><path d=""M4 4h6v6H4V4zm2 2v2h2V6H6zm0 7h2v2H6v-2zm2 2H6v2h2v-2zm8-11h6v6h-6V4zm2 2v2h2V6h-2zM4 14h6v6H4v-6zm2 2v2h2v-2H6zm10-12h2v2h-2V4zm0 8h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4-4h2v2h-2v-2zm0-4h2v2h-2v-2zm2-2h2v2h-2V8zm-2-2h2v2h-2V6zm8 8h2v2h-2v-2zm0 4h2v2h-2v-2z""/></svg>',
+                                '</div>'
+                            ].join('');
 
                             const mainButton = document.createElement('div');
                             mainButton.className = 'ppt-skeuo-circle';
                             mainButton.title = '展开标注工具';
-                            mainButton.innerHTML = `<svg viewBox=""0 0 24 24""><path d=""M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z""/></svg>`;
+                            mainButton.innerHTML = '<svg viewBox=""0 0 24 24""><path d=""M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z""/></svg>';
 
                             container.appendChild(tray);
                             container.appendChild(mainButton);
@@ -553,10 +583,8 @@ namespace PPTWebBrowserAddIn
                                 const ballCenterX = ballRect.left + ballRect.width / 2;
                                 const isOnRight = ballCenterX > window.innerWidth / 2;
                                 if (isOnRight) {
-                                    // Ball on right → expand tray to the LEFT
                                     tray.classList.remove('expand-right');
                                 } else {
-                                    // Ball on left → expand tray to the RIGHT
                                     tray.classList.add('expand-right');
                                 }
                             };
@@ -568,72 +596,40 @@ namespace PPTWebBrowserAddIn
                                     updateTrayDirection();
                                     tray.classList.toggle('expanded');
                                 }
-                            };
-
-                            let drawingActive = true;
-
-                            const setDrawingActive = (active) => {
-                                drawingActive = active;
-                                canvas.style.pointerEvents = active ? 'auto' : 'none';
-                                canvas.style.cursor = active ? 'crosshair' : 'default';
-                                // Dim the circle button when paused
-                                mainButton.style.opacity = active ? '1' : '0.5';
-                                mainButton.title = active ? '标注中（点击颜色可暂停）' : '已暂停 – 可操作网页（点击颜色恢复）';
+                                isDragging = false;
                             };
 
                             tray.querySelectorAll('.ppt-color-dot').forEach(dot => {
-                                dot.addEventListener('click', () => {
-                                    const wasActiveColor = dot.classList.contains('active');
-                                    if (wasActiveColor && drawingActive) {
-                                        // Second click on same color: suspend drawing, hand control back to webpage
-                                        setDrawingActive(false);
-                                        tray.querySelectorAll('.ppt-color-dot').forEach(d => d.classList.remove('active'));
-                                        dot.classList.add('active'); // keep colour selected but paused
-                                        dot.style.boxShadow = 'inset 0 1px 3px rgba(0,0,0,0.2), 0 0 0 2px rgba(0,0,0,0.15)';
-                                    } else {
-                                        // First click or different colour: activate drawing
-                                        setDrawingActive(true);
-                                        isEraser = false;
-                                        tray.querySelector('#ppt-btn-eraser').classList.remove('active');
-                                        tray.querySelectorAll('.ppt-color-dot').forEach(d => {
-                                            d.classList.remove('active');
-                                            d.style.boxShadow = '';
-                                        });
-                                        dot.classList.add('active');
-                                        dot.style.boxShadow = '';
-                                        inkColor = dot.getAttribute('data-color');
-                                        ctx.globalCompositeOperation = 'source-over';
-                                        ctx.strokeStyle = inkColor;
-                                    }
+                                dot.addEventListener('click', (e) => {
+                                    tray.querySelectorAll('.ppt-color-dot').forEach(d => d.classList.remove('active'));
+                                    dot.classList.add('active');
+                                    inkColor = dot.getAttribute('data-color');
+                                    inkHex = dot.style.background || '#ff3b30';
+                                    isEraser = false;
+                                    tray.querySelector('#ppt-btn-eraser').classList.remove('active');
+                                    updateCursor();
                                 });
                             });
 
                             tray.querySelectorAll('.ppt-size-dot').forEach(dot => {
-                                dot.addEventListener('click', () => {
+                                dot.addEventListener('click', (e) => {
                                     tray.querySelectorAll('.ppt-size-dot').forEach(d => d.classList.remove('active'));
                                     dot.classList.add('active');
-                                    inkWidth = parseInt(dot.getAttribute('data-size'));
-                                    ctx.lineWidth = inkWidth;
+                                    inkWidth = parseInt(dot.getAttribute('data-size')) || 4.5;
                                 });
                             });
 
                             tray.querySelector('#ppt-btn-undo').addEventListener('click', () => {
                                 if (history.length > 0) {
-                                    let previousState = history.pop();
-                                    ctx.putImageData(previousState, 0, 0);
+                                    const prev = history.pop();
+                                    ctx.putImageData(prev, 0, 0);
                                 }
                             });
 
                             tray.querySelector('#ppt-btn-eraser').addEventListener('click', () => {
                                 isEraser = !isEraser;
-                                if (isEraser) {
-                                    tray.querySelector('#ppt-btn-eraser').classList.add('active');
-                                    tray.querySelectorAll('.ppt-color-dot').forEach(d => d.classList.remove('active'));
-                                } else {
-                                    tray.querySelector('#ppt-btn-eraser').classList.remove('active');
-                                    const activeColor = tray.querySelector(`.ppt-color-dot[data-color=""${inkColor}""]`);
-                                    if (activeColor) activeColor.classList.add('active');
-                                }
+                                tray.querySelector('#ppt-btn-eraser').classList.toggle('active', isEraser);
+                                updateCursor();
                             });
 
                             tray.querySelector('#ppt-btn-clear').addEventListener('click', () => {
@@ -648,7 +644,7 @@ namespace PPTWebBrowserAddIn
                             });
                         })();
                     ";
-                    await _webView.CoreWebView2.ExecuteScriptAsync(js);
+                await _webView.CoreWebView2.ExecuteScriptAsync(js);
             }
             catch { }
         }
