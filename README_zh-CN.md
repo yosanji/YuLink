@@ -1,89 +1,144 @@
-# YuLink (鱼链) - 现代幻灯片无缝网页嵌入与教学交互演示套件
-
 <p align="center">
-  <img src="https://img.shields.io/badge/YuLink-v1.0.0-blue.svg?style=for-the-badge&logo=github" alt="Version">
-  <img src="https://img.shields.io/badge/.NET_Framework-4.8.1-512BD4.svg?style=for-the-badge&logo=dotnet" alt=".NET">
-  <img src="https://img.shields.io/badge/Chromium-WebView2-0078D7.svg?style=for-the-badge&logo=microsoftedge" alt="WebView2">
-  <img src="https://img.shields.io/badge/Host-PowerPoint_%7C_WPS-D83B01.svg?style=for-the-badge&logo=microsoftpowerpoint" alt="Host">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License">
-  <img src="https://img.shields.io/badge/Author-yosanji_(鱼玄机)-FF69B4.svg?style=for-the-badge" alt="Author">
+  <h1 align="center">YuLink (鱼链)</h1>
+  <p align="center">
+    <strong>现代化幻灯片无缝网页嵌入与板书交互演示套件</strong>
+    <br />
+    <em>Next-Generation Seamless Web Embedding & Interactive Presentation Suite for PowerPoint & WPS</em>
+  </p>
+  <p align="center">
+    <a href="#-what---这是什么">What 是什么</a> •
+    <a href="#-why---为什么选择-yulink">Why 为什么选择</a> •
+    <a href="#-how---如何安装与使用">How 如何使用</a> •
+    <a href="README.md">English Documentation</a>
+  </p>
+  <p align="center">
+    <a href="https://github.com/yosanji/YuLink/releases"><img src="https://img.shields.io/badge/Release-v1.0.0-blue.svg?style=flat-square&logo=github" alt="Version"></a>
+    <img src="https://img.shields.io/badge/.NET_Framework-4.8.1-512BD4.svg?style=flat-square&logo=dotnet" alt=".NET">
+    <img src="https://img.shields.io/badge/Chromium-WebView2-0078D7.svg?style=flat-square&logo=microsoftedge" alt="WebView2">
+    <img src="https://img.shields.io/badge/Host-PowerPoint_%7C_WPS-D83B01.svg?style=flat-square&logo=microsoftpowerpoint" alt="Host">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License">
+    <img src="https://img.shields.io/badge/Author-yosanji_(鱼玄机)-FF69B4.svg?style=flat-square" alt="Author">
+  </p>
 </p>
 
-> **让网页的无限交互力，原生融入每一页幻灯片。**  
-> **YuLink** 是一款专为**教育工作者、学术演讲者与演示工程师**打造的次世代 Office 增强套件。基于 **C# / VSTO** 与 **Microsoft Edge Chromium WebView2** 内核，它消除了 PPT 与浏览器之间割裂的窗口跳转，将现代 Web 技术的生动表达能力无缝注入 PowerPoint 与 WPS 演示之中。
-
 ---
 
-## 💡 写在前面 · 为什么开发 YuLink
+## 📌 WHAT - 这是什么？
 
-作为一名一线教育工作者，在日常教学中我发掘了 **HTML5 现代网页在课堂教学中不可替代的奇效**。无论是生动的动态物理仿真、三维几何模型，还是沉浸式的课文互动跟读，网页端都展现出了远超传统静态 PPT 的表现力。
+> **YuLink** 是一款专为**教师、学术演讲者与演示工程师**打造的 Office / WPS 深度增强插件。
 
-然而，传统的教学演示往往面临三大割裂痛点：
-1. **频繁跳转破坏节奏**：在 PPT 与外部浏览器之间频繁 `Alt + Tab` 切换，打断教学连贯性。
-2. **切出后无法板书批注**：一旦切到外部网页，PPT 自带的画笔瞬间失效，无法在关键知识点上随手圈画。
-3. **本地开发模型难以共享**：许多先进的教学模型运行在本地（如 Localhost、本地 WebGL 课件），缺乏免配置的同屏演示与移动端同步方案。
-
-**YuLink 应运而生。** 本项目基于 **C# / VSTO** 与 **Microsoft Edge Chromium WebView2** 内核，旨在**让幻灯片演播回归纯粹、流畅与一体化**。
-
----
-
-## 🎯 教学与演示应用场景
+基于 **C# / VSTO** 技术与 **Microsoft Edge Chromium WebView2** 内核，它能够将现代 Web 网页（在线网站、本地 HTML5、3D 模型、音视频应用）**像素级原生嵌入到 PowerPoint 与 WPS 演示的放映画面中**。无需跳出 PPT，即可在全屏演讲过程中流畅进行实时交互操作与板书批注。
 
 ```
-                               ┌───────────────────────────────────────────────┐
-                               │                 YuLink 演示体系                │
-                               └──────────────────────┬────────────────────────┘
-                                                      │
-         ┌────────────────────────┬───────────────────┴────────────────┬────────────────────────┐
-         ▼                        ▼                                    ▼                        ▼
- 📐 理科与数学教学        📖 文科与语言学习                    🎨 创意与设计教学        🎬 全媒体融合播放
-  • 3D WebGL (Three.js)    • 实时课文互动跟读                   • 生成式动态艺术         • 免跳转内嵌网页视频
-  • 交互式 GeoGebra 模型   • 拼音生词点读卡片                   • ECharts / DataV 大屏   • 零等待流畅同屏播放
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │                      PowerPoint / WPS 幻灯片放映视窗                   │
+ │                                                                        │
+ │   ┌────────────────────────────────────────────────────────────────┐   │
+ │   │  🌐 YuLink 嵌入式浏览器 (Chromium WebView2)                     │   │
+ │   │  • 3D 几何模型 (Three.js / GeoGebra)  • 课文互动跟读           │   │
+ │   │  • 本地 Localhost Web 服务             • 流媒体网页视频         │   │
+ │   │                                                                │   │
+ │   │                             ┌──────────────────────────────┐   │   │
+ │   │                             │ 🎨 拟物毛玻璃悬浮画笔工具     │   │   │
+ │   │                             │ [🔴][🔵][🟢] 🖌️ 橡皮 撤销 扫码│   │   │
+ │   │                             └──────────────────────────────┘   │   │
+ │   └────────────────────────────────────────────────────────────────┘   │
+ └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ✨ 核心功能与亮点
+## 💡 WHY - 为什么选择 YuLink？
 
-- 🎨 **苹果拟物悬浮画笔**：自适应方向展开（靠左向右展、靠右向左展，永不溢出），支持一键挂起交互（选择同色即暂停涂鸦接管网页操作）。
-- 📱 **Localhost 透明反向代理**：针对本地开发服务（如 `http://localhost:3000` / Vite / Webpack / Python Server），内置轻量级透明反代。手机扫码直接拉取电脑本地网页、CSS、JS 与图片等全部资产，无需开启 `--host`。
-- 🎯 **物理无线翻页笔直通**：专为讲台实战设计。即使鼠标点击网页抢占了 Windows 焦点，手里的**物理无线翻页笔**（PageDown / PageUp / 空格 / 方向键）依然能丝滑驱动 PPT 翻页。
-- 🔍 **Chrome 级离散等比缩放**：提供 $25\%$ 至 $500\%$ 的 16 阶 Chrome 标准百分比缩放，彻底消除局部错位拉伸。
-- 🛡️ **解除 X-Frame-Options 安全防嵌**：底层网络请求拦截，自动剥离安全防嵌套响应头，拒绝页面白屏。
-- 🌐 **双平台深度兼容**：原生适配 **Microsoft PowerPoint (2013-365)** 与 **WPS 演示 (WPP)**。
+传统的课件制作与演讲汇报中，插入网页或视频往往面临**操作繁琐、画面割裂、无法批注、翻页失灵**等多重痛点。YuLink 专为真实讲台体验进行了全方位的技术革新。
+
+### 1. 核心优势对比 (Why YuLink vs Traditional)
+
+| 对比维度 | 传统超链接 / 切换浏览器 ❌ | 传统嵌入插件 ⚠️ | **YuLink (鱼链) ✅** |
+| :--- | :--- | :--- | :--- |
+| **放映连贯性** | 频繁 `Alt+Tab` 跳出，打断讲演节奏 | 需单独弹出窗口，遮挡背景 | **同屏原生无缝渲染，放映浑然一体** |
+| **板书批注** | 切到浏览器后 PPT 画笔彻底失效 | 批注功能粗糙或无法交互 | **苹果拟物悬浮画笔，支持一键挂起交互** |
+| **硬件翻页笔** | 鼠标点击网页后，物理翻页笔失灵 | 焦点被网页独占，按键卡壳 | **独家翻页事件直通，手持翻页笔永不卡壳** |
+| **本地服务分享** | 手机无法访问电脑的 `localhost` | 只能分享静态外链 | **内置透明反向代理，手机扫码秒开本地资源** |
+| **跨域与防嵌限制** | 报 `X-Frame-Options` 拒绝连接错误 | 页面直接白屏报错 | **底层请求拦截剥离限制头，全网网页秒开** |
+| **画面缩放** | 浏览器缩放导致视口错位失真 | 缩放模糊拉伸 | **16 阶 Chrome 级离散等比缩放，像素对齐** |
 
 ---
 
-## 🚀 快速安装
+### 2. 核心教学与演示场景
 
-### 方式一：一键自动安装（推荐）
-1. 下载本项目发布包或克隆仓库至本地。
+* 📐 **理科与数学 · 3D 立体几何与物理仿真**  
+  原生加载 WebGL、Three.js、GeoGebra 等复杂模型。放映中直接拖拽旋转立体图形、动态展示受力与函数曲线。
+* 📖 **文科与语言 · 课文互动跟读与多媒体点读**  
+  嵌入具备语音测评、生词跟读与互动动画的 HTML5 课件，大屏即时互动。
+* 🎨 **艺术与创意 · 动态数据大屏与生成式设计**  
+  同屏流畅运行 Canvas 动效、ECharts / DataV 数据可视化与互动演示原型。
+* 🎬 **全媒体集成 · 免跳转在线视频播放**  
+  直接嵌入 Bilibili、YouTube 或内部视频流，省去外部播放器广告与跳转等待。
+
+---
+
+## 🛠️ HOW - 如何安装与使用？
+
+### 1. 系统运行环境要求
+
+* **操作系统**：Windows 10 / Windows 11 (64位)
+* **支持宿主**：Microsoft PowerPoint (2013 / 2016 / 2019 / 2021 / Office 365) 或 WPS 演示 (WPP)
+* **依赖环境**：
+  - [.NET Framework 4.8.1](https://dotnet.microsoft.com/download/dotnet-framework/net481)
+  - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (Win10/11 通常已自带)
+
+---
+
+### 2. 一键安装与卸载 (Installation)
+
+#### 🚀 方式一：一键自动安装（推荐，小白友好）
+1. 下载本项目发布包或克隆代码仓库到本地。
 2. 双击运行目录下的 **`一键安装.bat`**。
-3. 脚本自动完成脱机编译、自签名证书生成、信任链写入与 Office 注册。
-4. 打开 PowerPoint 或 WPS，顶部将出现 **`YuLink`** 功能区标签。
+3. 安装脚本将自动完成脱机编译、证书生成、ClickOnce 信任链注入及 Office 注册。
+4. 打开 PowerPoint 或 WPS，菜单栏顶部将出现 **`YuLink`** 功能区！
 
-### 方式二：开发者源码构建
+#### 👨‍💻 方式二：开发者源码构建
 ```bash
 git clone https://github.com/yosanji/YuLink.git
 cd YuLink
 powershell -ExecutionPolicy Bypass -File .\build_and_deploy.ps1
 ```
 
----
-
-## 📖 交互操作指南
-
-1. **插入网页**：点击 PPT 菜单栏 **`YuLink`** -> **`插入网页`**，在生成的占位符中输入目标网址（如 `http://localhost:5173` 或在线网页）。
-2. **放映演示**：按下 **F5** 开启放映，网页秒级渲染就绪。顶部控制栏提供前进、后退、刷新、全屏与缩放功能。
-3. **画笔标注**：点击顶部 **画笔** 图标唤出悬浮工具球，随时圈画重点。
-4. **扫码共享**：点击 **二维码** 图标，听众或学生扫码即可同步查阅展示内容。
-5. **局域网遥控**：点击 **`开启控制`** 并扫描 **`遥控二维码`**，手机化身掌上无线遥控器。
+#### 🗑️ 一键卸载
+若需从系统中完全清除，双击运行 **`一键卸载.bat`** 即可一键清理所有注册表项与信任缓存。
 
 ---
 
-## 🗑️ 一键卸载
+### 3. 功能详细操作手册 (User Guide)
 
-如需从系统中彻底移除插件，双击运行 **`一键卸载.bat`** 即可完全清理所有注册表项与信任证书缓存。
+```
+  [ 插入网页 ] ──► [ 放映 F5 ] ──► [ 悬浮画笔 🖌️ ] ──► [ 扫码共享 📱 ] ──► [ 手机遥控 🎮 ]
+```
+
+#### ① 插入网页占位符
+1. 打开 PowerPoint，点击上方功能区 **`YuLink`** 标签。
+2. 点击 **`插入网页`**，页面将生成一个标有 `🌐 网页嵌入容器` 的矩形框。
+3. 选中矩形框，在提示中输入您要展示的网址（如 `https://threejs.org` 或 `http://localhost:5173`）。
+
+#### ② 幻灯片放映与交互
+1. 按 **F5** 开启放映。翻到对应页面时，网页将秒级原生渲染。
+2. 顶部 Safari 风格导航栏提供：**前进、后退、刷新、全屏、等比缩放** 控制。
+3. **Chrome 级等比缩放**：点击 `+` / `-` 按钮可在 $25\% \sim 500\%$ 之间精确阶梯缩放，悬停即可查看当前精确百分比。
+
+#### ③ 拟物悬浮画笔批注
+1. 点击导航栏右侧的 **画笔** 图标，右下角将呼出磨砂玻璃悬浮圆盘。
+2. **多色笔迹 & 撤销**：内置 4 种精选色系、3 种笔触粗细调节、橡皮擦与 30 步历史撤销。
+3. **一键挂起交互**：点击当前选中的颜色即可快速暂停画笔，无缝恢复对底层网页的点击与滚动；再次点击恢复涂鸦。
+4. **自适应展开**：圆盘拖动到屏幕左半区向右展开，拖到右半区向左展开，永不遮挡或超出屏幕边界。
+
+#### ④ 本地 Localhost 扫码共享 (独家反代技术)
+1. 展示本地开发网页（如 `http://localhost:3000`）时，点击导航栏的 **二维码** 图标。
+2. 插件会自动激活内置反向代理，手机扫码后直接通过局域网拉取电脑本地的 HTML、CSS、JS 与图片等全部资产，轻松实现移动端同步展示。
+
+#### ⑤ 局域网手机遥控器
+1. 在功能区点击 **`开启控制`** 并扫描 **`遥控二维码`**。
+2. 手机浏览器即可作为手持无线遥控面板，远程控制 PPT 的上一页、下一页翻页切换。
 
 ---
 
