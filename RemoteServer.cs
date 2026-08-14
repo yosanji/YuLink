@@ -437,7 +437,6 @@ namespace PPTWebBrowserAddIn
                         }
                         else if (path == "/api/set_proxy")
                         {
-                            // LAN Virtual Network / VPN Sharing to PC
                             bool enable = parts[1].Contains("enable=1") || parts[1].Contains("enabled=true");
                             int port = 7890;
                             int portIdx = parts[1].IndexOf("port=");
@@ -514,7 +513,6 @@ namespace PPTWebBrowserAddIn
                         }
                         else if (path == "/view_photo" || path == "/photo" || path == "/view")
                         {
-                            // Pure Homework Photo Viewer (Scan QR code from big screen - ONLY views photo, ZERO control buttons)
                             string html = GetPhotoViewerHtml();
                             SendHtmlResponse(stream, html);
                         }
@@ -885,7 +883,7 @@ namespace PPTWebBrowserAddIn
         }
 
         // =========================================================================
-        // Student/Audience Photo Viewer HTML (Scan QR Code from Big Screen)
+        // Student/Audience Photo Viewer HTML (With Fullscreen & Double-Click Zoom)
         // PURE READ-ONLY HOMEWORK PHOTO VIEWER (Zero Control Buttons)
         // =========================================================================
         private string GetPhotoViewerHtml()
@@ -926,14 +924,15 @@ namespace PPTWebBrowserAddIn
             color: #f5f5f7;
             letter-spacing: -0.3px;
         }
-        .tag {
-            font-size: 12px;
-            background: rgba(52, 199, 89, 0.16);
-            color: #34c759;
-            padding: 4px 10px;
+        .btn-fs {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            padding: 5px 12px;
             border-radius: 12px;
+            font-size: 12px;
             font-weight: 600;
-            border: 1px solid rgba(52, 199, 89, 0.3);
+            cursor: pointer;
         }
         .img-card {
             width: 100%;
@@ -955,6 +954,7 @@ namespace PPTWebBrowserAddIn
             object-fit: contain;
             display: none;
             border-radius: 18px;
+            cursor: pointer;
         }
         .empty-box {
             display: flex;
@@ -977,10 +977,10 @@ namespace PPTWebBrowserAddIn
 <body>
     <div class=""header-bar"">
         <div class=""title"">作业试卷讲评</div>
-        <div class=""tag"">高清无损</div>
+        <button class=""btn-fs"" onclick=""toggleFullScreen()"">全屏浏览</button>
     </div>
 
-    <div class=""img-card"">
+    <div class=""img-card"" ondblclick=""toggleFullScreen()"">
         <div id=""emptyHint"" class=""empty-box"">
             <svg viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""3.2""/><path d=""M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z""/></svg>
             <div>教师尚未上传实物照片</div>
@@ -988,9 +988,25 @@ namespace PPTWebBrowserAddIn
         <img id=""photoImg"" alt=""Homework Photo"" />
     </div>
 
-    <div class=""hint-bar"">支持手机双指缩放 · 长按可保存原图</div>
+    <div class=""hint-bar"">双击或双指缩放 · 长按可保存原图</div>
 
     <script>
+        function toggleFullScreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
         let curVer = -1;
         async function fetchPhoto() {
             try {
@@ -1020,7 +1036,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Full Screen Visualizer Screen Receiver HTML (Large Screen in PPT)
-        // With [扫码看图] QR Popup for Students/Audience (Directs to /view_photo)
+        // With Native Fullscreen API + [全屏] button & Double-Click Fullscreen
         // =========================================================================
         private string GetCastViewHtml()
         {
@@ -1141,9 +1157,10 @@ namespace PPTWebBrowserAddIn
     </style>
 </head>
 <body>
-    <div id=""viewport"">
+    <div id=""viewport"" ondblclick=""toggleFullScreen()"">
         <div class=""hud-tools"">
             <button class=""hud-btn"" onclick=""toggleShareQR()"">扫码看图</button>
+            <button class=""hud-btn"" onclick=""toggleFullScreen()"">全屏</button>
             <button class=""hud-btn"" onclick=""zoomIn()"">放大</button>
             <button class=""hud-btn"" onclick=""zoomOut()"">缩小</button>
             <button class=""hud-btn"" onclick=""resetView()"">复位</button>
@@ -1182,6 +1199,26 @@ namespace PPTWebBrowserAddIn
         const img = document.getElementById('castImage');
         const emptyState = document.getElementById('emptyState');
         const qrModal = document.getElementById('qrModal');
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
 
         function updatePan() {
             panLayer.style.transform = 'translate3d(' + posX + 'px, ' + posY + 'px, 0)';
@@ -1334,7 +1371,7 @@ namespace PPTWebBrowserAddIn
 
         // =========================================================================
         // Pure Minimalist Modern Apple Pro Web Controller HTML
-        // With Real-time Volume, Lossless Camera & LAN VPN Proxy Sharing
+        // Minimalist "网络共享" (Zero Explanation Text) + Realtime Volume & Camera
         // =========================================================================
         private string GetControlPageHtml()
         {
@@ -1629,29 +1666,19 @@ namespace PPTWebBrowserAddIn
             fill: var(--text-secondary);
         }
 
-        /* 📶 LAN Virtual Network / VPN Sharing Card */
+        /* 📶 Minimalist Network Sharing Card (Zero Noise) */
         .proxy-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-
-        .proxy-info-col {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            cursor: pointer;
+            width: 100%;
         }
 
         .proxy-title {
             font-size: 15px;
             font-weight: 600;
             color: var(--text-primary);
-        }
-
-        .proxy-desc {
-            font-size: 12px;
-            color: var(--text-secondary);
+            cursor: pointer;
         }
 
         /* iOS Toggle Switch */
@@ -1877,13 +1904,10 @@ namespace PPTWebBrowserAddIn
             </div>
         </div>
 
-        <!-- 📶 LAN Virtual Network / VPN Sharing Card -->
+        <!-- 📶 Minimalist Network Sharing Card (Zero Explanation Text) -->
         <div class=""apple-card"">
             <div class=""proxy-row"">
-                <div class=""proxy-info-col"" onclick=""configProxyPort()"">
-                    <div class=""proxy-title"">局域网虚拟网络共享</div>
-                    <div id=""proxySubtitle"" class=""proxy-desc"">手机 VPN/代理共享给电脑 (端口: 7890)</div>
-                </div>
+                <div class=""proxy-title"" onclick=""configProxyPort()"">网络共享</div>
                 <label class=""ios-switch"">
                     <input id=""proxySwitch"" type=""checkbox"" onchange=""toggleProxy(this.checked)"">
                     <span class=""ios-slider""></span>
@@ -2060,7 +2084,7 @@ namespace PPTWebBrowserAddIn
         fetchSystemVolume();
 
         // =========================================================================
-        // LAN Virtual Network / VPN Proxy Sharing Engine
+        // Pure 网络共享 Toggle & Port Config
         // =========================================================================
         let currentProxyPort = 7890;
 
@@ -2071,37 +2095,22 @@ namespace PPTWebBrowserAddIn
                     const data = await res.json();
                     document.getElementById('proxySwitch').checked = data.enabled;
                     currentProxyPort = data.port || 7890;
-                    updateProxySubtitle(data.enabled);
                 }
             } catch (e) {}
         }
         initProxyStatus();
 
-        function updateProxySubtitle(enabled) {
-            const sub = document.getElementById('proxySubtitle');
-            if (enabled) {
-                sub.innerText = '已开启 · 电脑正共享手机 VPN (端口: ' + currentProxyPort + ')';
-                sub.style.color = 'var(--apple-green)';
-            } else {
-                sub.innerText = '手机 VPN/代理共享给电脑 (点击设置端口: ' + currentProxyPort + ')';
-                sub.style.color = 'var(--text-secondary)';
-            }
-        }
-
         async function toggleProxy(enabled) {
             vibrate();
             try {
-                const res = await fetch('/api/set_proxy?enable=' + (enabled ? '1' : '0') + '&port=' + currentProxyPort);
-                if (res.ok) {
-                    updateProxySubtitle(enabled);
-                }
+                await fetch('/api/set_proxy?enable=' + (enabled ? '1' : '0') + '&port=' + currentProxyPort);
             } catch (e) {
-                alert('网络共享设置失败: ' + e.message);
+                alert('设置失败: ' + e.message);
             }
         }
 
         function configProxyPort() {
-            const newPort = prompt('请输入手机 VPN 局域网代理端口 (Clash/v2ray 默认通常为 7890 或 10808):', currentProxyPort);
+            const newPort = prompt('设置网络共享代理端口 (默认 7890):', currentProxyPort);
             if (newPort) {
                 const p = parseInt(newPort);
                 if (p > 0 && p <= 65535) {
